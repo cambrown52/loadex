@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loadex"
+version = "0.1.0"
+description = "Tools to facilitate wind turbine loads data exchange"
+authors = [
+    { name="Cameron Brown", email="cab@goldwinddenmark.com" }
+]
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black"
+]
