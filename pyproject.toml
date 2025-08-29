@@ -4,20 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loadex"
-version = "0.1.0"
+version = "0.1.4"
 description = "Tools to facilitate wind turbine loads data exchange"
 authors = [
     { name="Cameron Brown", email="cab@goldwinddenmark.com" }
 ]
 readme = "README.md"
-license = { file="LICENSE" }
+license-files = ["LICENSE"]
 requires-python = ">=3.8"
 dependencies = [
     "numpy",
     "pandas",
     "pyarrow",
+    "rainflow",
     "weio@git+https://github.com/ebranlard/weio.git@main"
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["loadex*"]
 
 [project.optional-dependencies]
 dev = [
