@@ -19,7 +19,7 @@ class DataSet(object):
         if pattern is None:
             pattern = '*' + self.format.defaultExtensions()[0]
         
-        self.filelist = [File(f) for dir in directories for f in Path(dir).rglob(pattern) ]
+        self.filelist = [File(self,f) for dir in directories for f in Path(dir).rglob(pattern) ]
     
     @property
     def n_files(self):
@@ -37,6 +37,22 @@ class DataSet(object):
                 return sensor
         raise ValueError(f"Sensor '{name}' not found in sensorlist.")
     
+    
+    def get_file(self,name: str):
+        """Return a file by name. If multiple files match, return the first one."""
+        
+        for file in self.filelist:
+            if file.filepath.full_match(name):
+                return file
+        raise ValueError(f"File '{name}' not found in filelist.")
+    
+    def get_files(self,pattern: str):
+        """Return a list of files by pattern"""
+        file=[f for f in ds.filelist if f.filepath.full_match(pattern)]
+        if len(file)==0:
+            raise ValueError(f"No files found matching pattern '{pattern}'.")
+        return file
+
     def to_df(self):
         """Return a DataFrame with all statistics for all sensors"""
         if not self.sensorlist:
@@ -99,12 +115,17 @@ class DataSet(object):
 
 class File(object):
     """Contains a file from a loads dataset"""
-    metadata = dict()
-    filedata = None
 
-    def __init__(self, filepath: str):
+    def __init__(self,parent:DataSet, filepath: str):
+        self.parent=parent
         self.filepath = filepath
+        self.metadata = dict()
 
+    def read(self):
+        """Read the file and return a DataFrame"""
+        data_file = self.parent.format(filename=self.filepath)
+        return data_file.toDataFrame()
+    
     def __repr__(self):
         return f"File({self.filepath})"
 
