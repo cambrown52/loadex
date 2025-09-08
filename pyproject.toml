@@ -15,6 +15,7 @@ requires-python = ">=3.8"
 dependencies = [
     "numpy",
     "pandas",
+    "sqlalchemy",
     "pyarrow",
     "rainflow",
     "weio@git+https://github.com/ebranlard/weio.git@main"
