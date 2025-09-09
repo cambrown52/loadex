@@ -1,8 +1,8 @@
-import pandas as pd
-import glob
 from pathlib import Path
-import weio
-import rainflow
+
+import pandas as pd
+from loadex.classes import File, Sensor
+
 
 class DataSet(object):
     """Contains a loads dataset"""
@@ -48,7 +48,7 @@ class DataSet(object):
     
     def get_files(self,pattern: str):
         """Return a list of files by pattern"""
-        file=[f for f in ds.filelist if f.filepath.full_match(pattern)]
+        file=[f for f in self.filelist if f.filepath.full_match(pattern)]
         if len(file)==0:
             raise ValueError(f"No files found matching pattern '{pattern}'.")
         return file
@@ -114,78 +114,6 @@ class DataSet(object):
         return f"DataSet: {self.name}"
 
 
-class File(object):
-    """Contains a file from a loads dataset"""
-
-    def __init__(self,parent:DataSet, filepath: str):
-        self.parent=parent
-        self.filepath = filepath
-        self.metadata = dict()
-
-    def read(self):
-        """Read the file and return a DataFrame"""
-        data_file = self.parent.format(filename=self.filepath)
-        return data_file.toDataFrame()
-    
-    def __repr__(self):
-        return f"File({self.filepath})"
-
-
-class Statistic(object):
-    """Contains a statistic from a sensor"""
-
-    def __init__(self, name: str, aggregation_function):
-        self.name = name
-        self.aggregation_function = aggregation_function
-
-    def __repr__(self):
-        return f"Stat({self.name})"
-
-
-def equivalent_load(x:pd.Series,t:pd.Series,m: float):
-    """Return the equivalent load"""
-    T=max(t)-min(t)
-    cycles=pd.DataFrame(rainflow.count_cycles(x),columns=['range','count'])
-    Leq = (sum(cycles['count']*cycles['range']**m)/T)**(1/m)
-    return Leq
 
 
 
-class Sensor(object):
-    """Contains a sensor from a loads dataset"""
-
-    def __init__(self, name: str, statistics: list[Statistic]=None):
-        self.name = name
-        if statistics is not None:
-            self.statistics = statistics
-        else:
-            self.statistics = Sensor.standard_statistics()
-        
-        self.data=pd.DataFrame()
-        self.metadata = dict()
-
-    def calculate_statistics(self,filename: str, timeseries: pd.Series,timestamps: pd.Series):
-        for stat in self.statistics:
-            self.data.loc[filename, stat.name] = stat.aggregation_function(timeseries,timestamps)
-
-    def add_rainflow_statistics(self, m: list[float] = [3,4,5]):
-        """Add rainflow statistics to the sensor"""
-        for wohler in m:
-            stat_name = f'DEL1Hz_m{wohler}'
-            if not any(stat.name == stat_name for stat in self.statistics):
-                self.statistics.append(Statistic(stat_name, lambda x,t: equivalent_load(x,t,wohler)))
-
-    def __repr__(self):
-        return f"Sensor({self.name})"
-
-    def __str__(self):
-        return f"Sensor: {self.name}"
-    
-    @staticmethod
-    def standard_statistics():
-        return [
-            Statistic('mean', lambda x,t: pd.Series.mean(x)),
-            Statistic('max', lambda x,t: pd.Series.max(x)),
-            Statistic('min', lambda x,t: pd.Series.min(x)),
-            Statistic('std', lambda x,t: pd.Series.std(x)),
-        ]
