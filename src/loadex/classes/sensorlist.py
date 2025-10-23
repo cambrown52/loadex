@@ -12,11 +12,31 @@ class Sensor(object):
             self.statistics = Sensor.standard_statistics()
         
         self.data=pd.DataFrame()
+        self._data_cache=dict()
         self.metadata = dict()
 
     def calculate_statistics(self,filename: str, timeseries: pd.Series,timestamps: pd.Series):
-        for stat in self.statistics:
-            self.data.loc[filename, stat.name] = stat.aggregation_function(timeseries,timestamps)
+        """Calculate statistics for the sensor and store them in the data DataFrame"""
+        row={stat.name: stat.aggregation_function(timeseries,timestamps) for stat in self.statistics}
+        self._data_cache[filename] = row
+    
+    def _insert_cached_data(self):
+        """Insert cached data into the data DataFrame"""
+        data_cache = pd.DataFrame.from_dict(self._data_cache, orient='index')
+        if data_cache.empty:
+            return
+        
+        data_cache.index.name = 'filename'
+
+        # remove overlapping entries
+        if not self.data.empty:
+            overlap = self.data.index.intersection(data_cache.index)
+            if len(overlap):
+                self.data = self.data.drop(overlap)
+
+        # append cache
+        self.data = pd.concat([self.data, data_cache], axis=0)
+        self._data_cache.clear()
 
     def add_rainflow_statistics(self, m: list[float] = [3,4,5]):
         """Add rainflow statistics to the sensor"""

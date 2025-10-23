@@ -52,7 +52,7 @@ class DataSet(object):
         sensorlist = [Sensor(name) for name in self.filelist[fileindex].sensor_names]
         self.sensorlist= SensorList(sensorlist)
 
-    def generate_statistics(self):
+    def generate_statistics(self,filelistindex=None):
         """Generate statistics for each sensor across all files"""
         if not self.filelist:
             raise ValueError("Filelist is empty. Please find files first.")
@@ -60,21 +60,32 @@ class DataSet(object):
             raise ValueError("Sensorlist is empty. Please set sensors first.")
         
         failed=[]
-        for file in self.filelist:
+        
+        if filelistindex is not None:
+            files_to_process=[self.filelist[index] for index in filelistindex]
+        else:
+            files_to_process=self.filelist
+
+        for file in files_to_process:
             print(f"loading file: {file.filepath}")
             try:
-                data_file = self.format(filename=file.filepath)
+                time=file.get_time()
+                sensor_names=file.sensor_names
+
+                for sensor in self.sensorlist:
+                    if sensor.name in sensor_names:
+                        sensor.calculate_statistics(file.filepath, file.get_data(sensor.name),time)
+                    else:
+                        print(f"Warning: Sensor '{sensor.name}' not found in file '{file.filepath}'.")
+                
             except Exception as e:
                 print(e)
                 failed.append(file.filepath)
                 continue
-            df = data_file.toDataFrame()
+        
+        for sensor in self.sensorlist:
+            sensor._insert_cached_data()
             
-            for sensor in self.sensorlist:
-                if sensor.name in df.columns:
-                    sensor.calculate_statistics(file.filepath, df[sensor.name],df[self.timecolumn])
-                else:
-                    print(f"Warning: Sensor '{sensor.name}' not found in file '{file.filepath}'.")
         if failed:
             print("failed to load:")
             for f in failed:
