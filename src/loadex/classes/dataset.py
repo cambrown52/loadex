@@ -1,13 +1,15 @@
 from pathlib import Path
 
 import pandas as pd
-from loadex.classes import File, Sensor
+from loadex.classes.filelist import File, FileList
+from loadex.classes.sensorlist import Sensor, SensorList
+from loadex.formats.bladed_out_file import BladedOutFile
 
 
 class DataSet(object):
     """Contains a loads dataset"""
     
-    def __init__(self, name: str,format):
+    def __init__(self, name: str,format=BladedOutFile):
         self.name = name
         self.format=format
         self.filelist = []
@@ -19,39 +21,13 @@ class DataSet(object):
         if pattern is None:
             pattern = '*' + self.format.defaultExtensions()[0]
         
-        self.filelist = [File(self,f) for dir in directories for f in Path(dir).rglob(pattern) ]
+        filelist = [self.format(f) for dir in directories for f in Path(dir).rglob(pattern) ]
+        self.filelist = FileList(filelist)
     
     @property
     def n_files(self):
         """Return the number of files in the filelist"""
-        return len(self.filelist)
-
-    @property
-    def sensor(self):
-        return  {sensor.name: sensor for sensor in self.sensorlist}
-
-    def get_sensor(self, name: str):
-        """Return a sensor by name"""
-        for sensor in self.sensorlist:
-            if sensor.name == name:
-                return sensor
-        raise ValueError(f"Sensor '{name}' not found in sensorlist.")
-    
-    
-    def get_file(self,name: str):
-        """Return a file by name. If multiple files match, return the first one."""
-        
-        for file in self.filelist:
-            if file.filepath.full_match(name):
-                return file
-        raise ValueError(f"File '{name}' not found in filelist.")
-    
-    def get_files(self,pattern: str):
-        """Return a list of files by pattern"""
-        file=[f for f in self.filelist if f.filepath.full_match(pattern)]
-        if len(file)==0:
-            raise ValueError(f"No files found matching pattern '{pattern}'.")
-        return file
+        return len(self.filelist) 
 
     def to_df(self):
         """Return a DataFrame with all statistics for all sensors"""
@@ -72,12 +48,9 @@ class DataSet(object):
     def set_sensors(self,fileindex=0):
         """Set sensors from the first file in the filelist"""
         if not self.filelist:
-            raise ValueError("Filelist is empty. Please find files first.")
-        
-        first_file = self.format(filename=self.filelist[fileindex].filepath)
-        df = first_file.toDataFrame()
-        
-        self.sensorlist = [Sensor(col) for col in df.columns]
+            raise ValueError("Filelist is empty. Please find files first.")    
+        sensorlist = [Sensor(name) for name in self.filelist[fileindex].sensor_names]
+        self.sensorlist= SensorList(sensorlist)
 
     def generate_statistics(self):
         """Generate statistics for each sensor across all files"""

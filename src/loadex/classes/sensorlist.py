@@ -39,3 +39,18 @@ class Sensor(object):
             Statistic('min', lambda x,t: pd.Series.min(x)),
             Statistic('std', lambda x,t: pd.Series.std(x)),
         ]
+    
+class SensorList(list):
+    """A thin list subclass for sensors with convenience methods."""
+    def get_sensor(self, name: str):
+        """Return a sensor by name"""
+        for sensor in self:
+            if sensor.name == name:
+                return sensor
+        raise ValueError(f"Sensor '{name}' not found in sensorlist.")
+
+    def to_dict(self):
+        result = {}
+        for s in self:
+            result[s.name] = s
+        return result
