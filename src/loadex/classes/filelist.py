@@ -29,7 +29,7 @@ class File(object):
         pass
 
     def __repr__(self):
-        return f"File({self.filepath})"
+        return f"{self.__class__.__name__}({self.filepath})"
 
 class FileList(list):
     """A thin list subclass for sensors with convenience methods."""

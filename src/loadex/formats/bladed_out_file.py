@@ -55,7 +55,13 @@ class BladedOutFile(File):
 
     def _initialize_sensor_list(self):
         sensors = []
-        for group in self.run.get_groups():
+        Ntime=len(self.get_time())
+        groups = self.run.get_groups()
+        groups = sorted(groups, key=lambda o: o.number)
+        for group in groups:
+            if group.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_PRIMARY).name!="Time" or group.data_point_count!=Ntime:
+                continue # only time variables are supported and constant time vector length
+
             if group.is_one_dimensional:
                 for variable in group.get_variables_1d():
                     sensors.append(Bladed1DSensor(variable))
@@ -89,14 +95,17 @@ class BladedOutFile(File):
             df["name"]=df.apply(lambda row: row.group.name,axis=1)
             df["number"]=df.apply(lambda row: row.group.number,axis=1)
             df["calculation_short_name"]=df.apply(lambda row: row.group.calculation_short_name,axis=1)
+            df["number_of_independent_variables"]=df.apply(lambda row: row.group.number_of_independent_variables,axis=1)
+            df["primary_independent_var"] = df.apply(lambda row: row.group.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_PRIMARY).name, axis=1)
+            df["primary_independent_var_unit"] = df.apply(lambda row: row.group.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_PRIMARY).si_unit, axis=1)
+            df = df.drop(index=df[df["primary_independent_var"] != "Time"].index)
+
             df["data_point_count"]=df.apply(lambda row: row.group.data_point_count,axis=1)
             df["calculation_type"]=df.apply(lambda row: row.group.calculation_type,axis=1)
             df["time_domain_simulation_length"]=df.apply(lambda row: row.group.time_domain_simulation_length,axis=1)
             df["time_domain_simulation_output_start_time"]=df.apply(lambda row: row.group.time_domain_simulation_output_start_time,axis=1)
             df["time_domain_simulation_output_timestep"]=df.apply(lambda row: row.group.time_domain_simulation_output_timestep,axis=1)
-            df["number_of_independent_variables"]=df.apply(lambda row: row.group.number_of_independent_variables,axis=1)
-            df["primary_independent_var"] = df.apply(lambda row: row.group.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_PRIMARY).name, axis=1)
-            df["primary_independent_var_unit"] = df.apply(lambda row: row.group.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_PRIMARY).si_unit, axis=1)
+
             df["is_two_dimensional"] = df.apply(lambda row: row.group.is_two_dimensional, axis=1)
             df["number_of_variables"]= df.apply(lambda row: row.group.number_of_variables, axis=1)
 
@@ -165,7 +174,7 @@ class Bladed1DSensor(BladedSensor):
     @property
     def name(self):
         if self._name is None:
-            self._name = self.variable_name
+            self._name = self.group_name + " " + self.variable_name
         return self._name
     
     def get_data(self):
@@ -180,7 +189,7 @@ class Bladed2DSensor(BladedSensor):
     @property
     def name(self):
         if self._name is None:
-            self._name = self.variable_name + " " + self.independent_variable.name + "=" + str(self.independent_variable_value) + self.independent_variable_unit
+            self._name = self.group_name + " " + self.variable_name + " " + self.independent_variable.name + "=" + str(self.independent_variable_value) + self.independent_variable_unit
         return self._name
     
     @property

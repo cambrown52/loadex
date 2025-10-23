@@ -18,7 +18,7 @@ dependencies = [
     "sqlalchemy",
     "pyarrow",
     "rainflow",
-    "weio"
+    "dnv_bladed_results"
 ]
 
 [tool.setuptools.packages.find]
