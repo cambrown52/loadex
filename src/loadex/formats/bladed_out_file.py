@@ -74,9 +74,10 @@ class BladedOutFile(File):
                 if independent_variable.has_numeric_values:
                     independent_variable_numeric=independent_variable.get_values_as_number()
 
-                for variable in group.get_variables_2d():
-                    for i,independent_variable_value in enumerate(independent_variable_values):
-                        
+                dependent_variables=group.get_variables_2d()
+                for i,independent_variable_value in enumerate(independent_variable_values):
+                    for variable in dependent_variables:
+
                         numeric_value=None
                         if independent_variable_numeric is not None:
                             numeric_value=independent_variable_numeric[i]
