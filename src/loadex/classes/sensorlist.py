@@ -68,6 +68,18 @@ class SensorList(list):
             if sensor.name == name:
                 return sensor
         raise ValueError(f"Sensor '{name}' not found in sensorlist.")
+    
+    def get_sensors(self, pattern: str) -> "SensorList":
+        """Return a list of sensors by pattern"""
+        sensors = [s for s in self if pattern in s.name]
+        if len(sensors) == 0:
+            raise ValueError(f"No sensors found matching pattern '{pattern}'.")
+        return SensorList(sensors)
+
+    def add_rainflow_statistics(self, m: list[float] = [3,4,5]):
+        """Add rainflow statistics to all sensors in the list"""
+        for sensor in self:
+            sensor.add_rainflow_statistics(m)
 
     def to_dict(self):
         result = {}
