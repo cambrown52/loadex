@@ -2,6 +2,9 @@ from abc import abstractmethod
 import pandas as pd
 from pathlib import Path
 from typing import List, Dict
+import json
+
+from loadex.data import datamodel
 
 
 class File(object):
@@ -28,6 +31,21 @@ class File(object):
     def to_dataframe(self) -> pd.DataFrame:
         pass
 
+    def to_sql(self,session):
+        db_file = datamodel.File(filepath=str(self.filepath))
+        session.add(db_file)
+
+        for key,value in self.metadata.items():
+            db_attr = datamodel.FileAttribute(
+                file=db_file,
+                key=key,
+                value=json.dumps(value)
+            )
+            session.add(db_attr)
+        
+        session.commit()
+        return db_file
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.filepath})"
 
@@ -47,3 +65,12 @@ class FileList(list):
         if len(file)==0:
             raise ValueError(f"No files found matching pattern '{pattern}'.")
         return FileList(file)
+    
+    def to_sql(self,session):
+        """Store filelist in database"""
+        file_id=[]
+        for file in self:
+            db_file = file.to_sql(session)
+            file_id.append({file.filepath: db_file.id})
+        
+        return pd.Series(file_id)

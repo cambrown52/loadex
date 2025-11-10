@@ -3,23 +3,23 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
-class Simulation(Base):
-    __tablename__ = "simulations"
+class File(Base):
+    __tablename__ = "files"
     id = Column(Integer, primary_key=True)
-    filename = Column(String, unique=True, nullable=False)
+    filepath = Column(String, unique=True, nullable=False)
     # Relationship to statistics
-    statistics = relationship("Statistic", back_populates="simulation")
-    attributes = relationship("SimulationAttribute", back_populates="simulation")
+    statistics = relationship("Statistic", back_populates="file")
+    attributes = relationship("FileAttribute", back_populates="file")
 
-class SimulationAttribute(Base):
-    __tablename__ = "simulationattributes"
+class FileAttribute(Base):
+    __tablename__ = "fileattributes"
     id = Column(Integer, primary_key=True)
-    simulation_id = Column(Integer, ForeignKey("simulations.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     key = Column(String, nullable=False)
     value = Column(Text, nullable=False)  # JSON-encoded string
 
     # Relationships
-    simulation = relationship("Simulation", back_populates="attributes")
+    file = relationship("File", back_populates="attributes")
 
 class Sensor(Base):
     __tablename__ = "sensors"
@@ -43,7 +43,7 @@ class SensorAttribute(Base):
 class StandardStatistic(Base):
     __tablename__ = "standardstatistics"
     id = Column(Integer, primary_key=True)
-    simulation_id = Column(Integer, ForeignKey("simulations.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
 
     mean = Column(Float, nullable=False)
@@ -52,20 +52,20 @@ class StandardStatistic(Base):
     std = Column(Float, nullable=False)
 
     # Relationships
-    simulation = relationship("Simulation")
+    file = relationship("File")
     sensor = relationship("Sensor")
 
 class StatisticType(Base):
     __tablename__ = "statistictypes"
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
-    description = Column(Text)
-    python_function = Column(Text, nullable=False)  # Store the function as a string
+    python_class = Column(Text, nullable=False)  # Store the function as a string
+    python_params = Column(Text)  # JSON-encoded parameters
 
 class CustomStatistic(Base):
     __tablename__ = "customstatistics"
     id = Column(Integer, primary_key=True)
-    simulation_id = Column(Integer, ForeignKey("simulations.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
 
     statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False)
@@ -73,6 +73,6 @@ class CustomStatistic(Base):
     value = Column(Float, nullable=False)    
 
     # Relationships
-    simulation = relationship("Simulation")
+    file = relationship("File")
     sensor = relationship("Sensor")
     statistic_type = relationship("StatisticType")

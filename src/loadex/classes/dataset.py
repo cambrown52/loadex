@@ -4,6 +4,9 @@ import pandas as pd
 from loadex.classes.filelist import File, FileList
 from loadex.classes.sensorlist import Sensor, SensorList
 from loadex.formats.bladed_out_file import BladedOutFile
+from loadex.data.database import get_sqlite_session
+from loadex.data import datamodel
+
 
 
 class DataSet(object):
@@ -90,6 +93,19 @@ class DataSet(object):
             print("failed to load:")
             for f in failed:
                 print(f)
+
+    def to_sql(self, database_file:str):
+        """Save the dataset to a SQLite database"""
+
+        Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
+        with Session() as session:
+            # Store files
+            file_ids=self.filelist.to_sql(session)
+            
+            # Store sensors
+            self.sensorlist.to_sql(session,file_ids)
+
+
 
     def __repr__(self):
         return f"DataSet(name={self.name})"
