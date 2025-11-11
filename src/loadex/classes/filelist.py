@@ -31,6 +31,30 @@ class File(object):
     def to_dataframe(self) -> pd.DataFrame:
         pass
 
+    def plot_timeseries(self,sensor_name:str, axis=None,scale:float=None,offset: float = None,label=None):
+        """Plot the data for a given sensor"""
+        import matplotlib.pyplot as plt
+
+        x = self.get_time()
+        y = self.get_data(sensor_name)
+        
+        if scale:
+            y=y*scale
+        if offset:
+            y=y+offset
+
+        if axis is None:
+            axis=plt.figure(figsize=(10,5))
+            axis.set_xlabel("Time [s]")
+            axis.set_ylabel(sensor_name)
+        
+        if not label:
+            label = self.filepath.name
+
+        axis.plot(x, y, label=label )
+        axis.grid(True)
+
+
     def to_sql(self,session):
         db_file = datamodel.File(filepath=str(self.filepath))
         session.add(db_file)
