@@ -54,7 +54,7 @@ class Sensor(object):
         return db_sensor
 
     def add_or_get_database_sensor(self,session):
-        query=session.Query(datamodel.Sensor).filter_by(name=self.name)
+        query=session.query(datamodel.Sensor).filter_by(name=self.name)
         if query.count()>0:
             return query.one()
 
@@ -91,13 +91,16 @@ class Sensor(object):
         
         custom_stats=pd.DataFrame(custom_stats,columns=["object"])
         custom_stats["stat_name"]=custom_stats["object"].apply(lambda x: x.name)
-        custom_stats["db_statistic_type_id"]=custom_stats["object"].apply(lambda x: x.add_or_get_database_statistic(session).id)
-
-        custom_stat_data=custom_stat_data.join(file_id, how="left")
-        custom_stat_data=self.data.loc[:, custom_stats["stat_name"]]
-        custom_stat_data=custom_stat_data.unstack(ignore_index=False, var_name="stat_name", value_name="value")
-        custom_stat_data=custom_stat_data.join(custom_stats.set_index("stat_name")["db_statistic_type_id"], on="stat_name")
+        custom_stats["statistic_type_id"]=custom_stats["object"].apply(lambda x: x.add_or_get_database_statistic(session).id)
         
+        custom_stat_data=self.data.loc[:, custom_stats["stat_name"]]
+        custom_stat_data.columns.name="stat_name"
+        custom_stat_data=custom_stat_data.unstack()
+        custom_stat_data.name="value"
+        custom_stat_data=custom_stat_data.reset_index(level="stat_name")
+        custom_stat_data=custom_stat_data.join(file_id, how="left")
+
+        custom_stat_data=custom_stat_data.join(custom_stats.set_index("stat_name")["statistic_type_id"], on="stat_name")
         
         custom_stat_data["sensor_id"]=db_sensor.id
 
@@ -143,6 +146,6 @@ class SensorList(list):
             result[s.name] = s
         return result
     
-    def to_sql(self,session):
+    def to_sql(self,session,file_id):
         for sensor in self:
-            sensor.to_sql(session)
+            sensor.to_sql(session,file_id)

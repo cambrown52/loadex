@@ -68,9 +68,9 @@ class FileList(list):
     
     def to_sql(self,session):
         """Store filelist in database"""
-        file_id=[]
+        file_id={}
         for file in self:
             db_file = file.to_sql(session)
-            file_id.append({file.filepath: db_file.id})
+            file_id[file.filepath] = db_file.id
         
-        return pd.Series(file_id)
+        return pd.Series(file_id, name="file_id")

@@ -8,7 +8,7 @@ class File(Base):
     id = Column(Integer, primary_key=True)
     filepath = Column(String, unique=True, nullable=False)
     # Relationship to statistics
-    statistics = relationship("Statistic", back_populates="file")
+    standard_statistics = relationship("StandardStatistic", back_populates="file")
     attributes = relationship("FileAttribute", back_populates="file")
 
 class FileAttribute(Base):
@@ -26,7 +26,7 @@ class Sensor(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
     # Relationship to statistics
-    statistics = relationship("Statistic", back_populates="sensor")
+    standard_statistics = relationship("StandardStatistic", back_populates="sensor")
 
     attributes = relationship("SensorAttribute", back_populates="sensor")
 

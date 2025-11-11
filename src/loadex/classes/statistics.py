@@ -66,7 +66,7 @@ class CustomStatistic(Statistic):
     
     def add_or_get_database_statistic(self,session):
         """Return a dict suitable for inserting into the database"""
-        query=session.Query(datamodel.StatisticType).filter_by(name=self.name)
+        query=session.query(datamodel.StatisticType).filter_by(name=self.name)
         if query.count()>0:
             return query.one()
 
@@ -80,9 +80,9 @@ class CustomStatistic(Statistic):
         session.commit()
         return db_stat
 
-class EquivalentLoad(Statistic):
+class EquivalentLoad(CustomStatistic):
     def __init__(self, m: float):
-        super().__init__(f'DEL1Hz_m{m}',params={"m":m})
+        super().__init__(name=f'DEL1Hz_m{m}',params={"m":m})
         
     def aggregation_function(self, timeseries: pd.Series, timestamps: pd.Series):
         return equivalent_load(timeseries, timestamps, self.params["m"])
