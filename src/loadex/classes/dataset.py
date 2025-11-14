@@ -105,7 +105,22 @@ class DataSet(object):
             # Store sensors
             self.sensorlist.to_sql(session,file_ids)
 
+    @staticmethod
+    def from_sql(database_file:str, name:str=None,format=BladedOutFile)->"DataSet":
+        """Read the dataset from a SQLite database"""
+        if not name:
+            name=Path(database_file).name
 
+        ds=DataSet(name=name, format=format)
+        Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
+        with Session() as session:
+            # Read files
+            ds.filelist=FileList.from_sql(session, ds.format)
+            
+            # Read sensors
+            ds.sensorlist=SensorList.from_sql(session)
+        
+        return ds
 
     def __repr__(self):
         return f"DataSet(name={self.name})"

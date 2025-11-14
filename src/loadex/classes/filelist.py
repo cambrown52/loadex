@@ -98,3 +98,17 @@ class FileList(list):
             file_id[file.filepath] = db_file.id
         
         return pd.Series(file_id, name="file_id")
+    
+    @staticmethod
+    def from_sql(session, format_class) -> "FileList":
+        """Load filelist from database"""
+        files = []
+        db_files = session.query(datamodel.File).all()
+        for db_file in db_files:
+            metadata = {}
+            for attr in db_file.attributes:
+                metadata[attr.key] = json.loads(attr.value)
+            file = format_class(db_file.filepath, metadata)
+            files.append(file)
+        
+        return FileList(files)

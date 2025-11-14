@@ -1,4 +1,5 @@
 import json
+import sys
 from pyparsing import abstractmethod
 import rainflow
 import pandas as pd
@@ -79,6 +80,24 @@ class CustomStatistic(Statistic):
         session.add(db_stat)
         session.commit()
         return db_stat
+    
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+    @staticmethod
+    def from_sql(session,db_statistic_type):
+        """Create a CustomStatistic from a database StatisticType"""
+        params = {}
+        if db_statistic_type.python_params:
+            params = json.loads(db_statistic_type.python_params)
+        
+        # Map class name to class
+        StatisticType=get_statistic_type_from_string(db_statistic_type.python_class)
+    
+        statistic = StatisticType(**params)
+        return statistic
+
 
 class EquivalentLoad(CustomStatistic):
     def __init__(self, m: float):
@@ -94,3 +113,11 @@ def  equivalent_load(x: pd.Series, t: pd.Series, m: float):
     cycles = pd.DataFrame(rainflow.count_cycles(x), columns=['range', 'count'])
     Leq = (sum(cycles['count'] * cycles['range'] ** m) / T) ** (1 / m)
     return Leq
+
+
+def get_statistic_type_from_string(class_name: str):
+    """Create a statistic instance from class name string using module getattr"""
+    current_module = sys.modules[__name__]
+    if hasattr(current_module, class_name):
+        return getattr(current_module, class_name)
+    raise ValueError(f"Unknown statistic class '{class_name}'")

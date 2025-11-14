@@ -44,7 +44,7 @@ class StandardStatistic(Base):
     __tablename__ = "standardstatistics"
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
+    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False,index=True)
 
     mean = Column(Float, nullable=False)
     max = Column(Float, nullable=False)
@@ -66,7 +66,7 @@ class CustomStatistic(Base):
     __tablename__ = "customstatistics"
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
+    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False,index=True)
 
     statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False)
 

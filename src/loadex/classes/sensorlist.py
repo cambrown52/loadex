@@ -7,16 +7,16 @@ from loadex.data import datamodel
 class Sensor(object):
     """Contains a sensor from a loads dataset"""
 
-    def __init__(self, name: str, statistics_list: list[statistics.Statistic]=None):
+    def __init__(self, name: str,metadata:dict={}, statistics_list: list[statistics.Statistic]=None):
         self.name = name
         if statistics_list is not None:
             self.statistics = statistics_list
         else:
-            self.statistics = statistics.standard_statistics
+            self.statistics = statistics.standard_statistics.copy()
         
         self.data=pd.DataFrame()
         self._data_cache=dict()
-        self.metadata = dict()
+        self.metadata = metadata
 
     def calculate_statistics(self,filename: str, timeseries: pd.Series,timestamps: pd.Series):
         """Calculate statistics for the sensor and store them in the data DataFrame"""
@@ -49,8 +49,8 @@ class Sensor(object):
 
     def to_sql(self,session,file_id):
         db_sensor=self.add_or_get_database_sensor(session)
-        self.upload_standard_statistics(session,db_sensor,file_id)
-        self.upload_custom_statistics(session,db_sensor,file_id)
+        self.insert_standard_statistics(session,db_sensor,file_id)
+        self.insert_custom_statistics(session,db_sensor,file_id)
         return db_sensor
 
     def add_or_get_database_sensor(self,session):
@@ -72,7 +72,7 @@ class Sensor(object):
         session.commit()
         return db_sensor
     
-    def upload_standard_statistics(self,session,db_sensor,file_id):
+    def insert_standard_statistics(self,session,db_sensor,file_id):
         standard_data=self.data.loc[:,["mean","max","min","std"]]
         standard_data=standard_data.join(file_id, how="left")
         standard_data["sensor_id"]=db_sensor.id
@@ -83,7 +83,7 @@ class Sensor(object):
         
         session.commit()
 
-    def upload_custom_statistics(self,session,db_sensor,file_id):
+    def insert_custom_statistics(self,session,db_sensor,file_id):
         
         custom_stats = [stat for stat in self.statistics if isinstance(stat,statistics.CustomStatistic)]
         if not custom_stats:
@@ -109,7 +109,66 @@ class Sensor(object):
         #custom_stats.to_sql('custom_statistics', session.get_bind(), if_exists='append', index=False)
         
         session.commit()
+
+    
+    @staticmethod
+    def from_sql(session,db_sensor):
+        metadata = {}
+        for attr in db_sensor.attributes:
+            metadata[attr.key] = json.loads(attr.value)
+
+        db_statistic_types=session.query(datamodel.StatisticType)\
+            .join(datamodel.CustomStatistic,
+                  datamodel.StatisticType.id==datamodel.CustomStatistic.statistic_type_id)\
+            .filter(datamodel.CustomStatistic.sensor_id==db_sensor.id).all()
         
+        
+        print(f"{db_sensor.name}: {[stat.name for stat in db_statistic_types]} ({len(db_statistic_types)})")
+        statistics_list = statistics.standard_statistics.copy()
+        for db_statistic_type in db_statistic_types:
+            statistic = statistics.CustomStatistic.from_sql(session, db_statistic_type)
+            statistics_list.append(statistic)
+          
+        sensor = Sensor(db_sensor.name, metadata=metadata,statistics_list=statistics_list)
+
+        sensor.read_statistics(session,db_sensor)
+
+        # Load statistics if needed
+        return sensor
+        
+    def read_statistics(self,session,db_sensor):
+        
+        # Load standard statistics
+        sql_query=session.query(
+            datamodel.File.filepath,
+            datamodel.StandardStatistic.mean,
+            datamodel.StandardStatistic.max,
+            datamodel.StandardStatistic.min,
+            datamodel.StandardStatistic.std,
+            ).join(datamodel.StandardStatistic.file)\
+            .filter(datamodel.StandardStatistic.sensor_id==db_sensor.id)
+        
+        df_standard_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
+
+        
+        custom_stats=set(self.statistics)-set(statistics.standard_statistics)
+        if len(custom_stats) == 0:
+            self.data = df_standard_stats
+        else:
+            sql_query=session.query(
+                datamodel.File.filepath,
+                datamodel.CustomStatistic.value,
+                datamodel.StatisticType.name.label('stat_type'),
+            ).join(datamodel.CustomStatistic.file)\
+            .join(datamodel.CustomStatistic.statistic_type)\
+            .filter(datamodel.CustomStatistic.sensor_id==db_sensor.id)
+
+            df_custom_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
+
+            df_custom_stats=df_custom_stats.pivot(columns='stat_type', values='value')
+
+            self.data = pd.concat([df_standard_stats, df_custom_stats], axis=1)
+            
     
     def __repr__(self):
         return f"Sensor({self.name})"
@@ -149,3 +208,14 @@ class SensorList(list):
     def to_sql(self,session,file_id):
         for sensor in self:
             sensor.to_sql(session,file_id)
+
+    @staticmethod
+    def from_sql(session):
+        db_sensors = session.query(datamodel.Sensor).all()
+        sensors = []
+        for db_sensor in db_sensors:
+            sensor = Sensor.from_sql(session, db_sensor)
+
+            # Load statistics if needed
+            sensors.append(sensor)
+        return SensorList(sensors)
