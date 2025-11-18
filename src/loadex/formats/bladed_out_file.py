@@ -33,6 +33,10 @@ class BladedOutFile(File):
     def sensor_names(self):
         return [sensor.name for sensor in self.sensors]
     
+    def clear_connections(self):
+        self._run = None
+        self._sensors = None
+
     def to_dataframe(self) -> pd.DataFrame:
         pass
         """Return the data as a DataFrame"""

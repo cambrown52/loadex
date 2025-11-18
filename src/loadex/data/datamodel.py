@@ -46,10 +46,10 @@ class StandardStatistic(Base):
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False,index=True)
 
-    mean = Column(Float, nullable=False)
-    max = Column(Float, nullable=False)
-    min = Column(Float, nullable=False)
-    std = Column(Float, nullable=False)
+    mean = Column(Float)
+    max = Column(Float)
+    min = Column(Float)
+    std = Column(Float)
 
     # Relationships
     file = relationship("File")

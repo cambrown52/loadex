@@ -31,6 +31,7 @@ def test_load_dataset():
     ds.sensorlist.get_sensors("Tower Mz").add_rainflow_statistics([3,4,5])
 
     # generate statistics
+    ds.generate_statistics(parallel=True)
     ds.generate_statistics()
 
     print("Generated statistics.")

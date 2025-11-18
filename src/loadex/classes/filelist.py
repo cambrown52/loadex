@@ -1,10 +1,12 @@
 from abc import abstractmethod
+from fileinput import filename
 import pandas as pd
 from pathlib import Path
 from typing import List, Dict
 import json
 
 from loadex.data import datamodel
+from loadex.classes.sensorlist import SensorList
 
 
 class File(object):
@@ -30,6 +32,25 @@ class File(object):
     @abstractmethod
     def to_dataframe(self) -> pd.DataFrame:
         pass
+
+    def clear_connections(self):
+        """Clear any connections to external resources before serialization"""
+        pass
+
+    def generate_statistics(self, sensorlist: "SensorList")->tuple[bool,dict]:
+            #def calculate_statistics(self,filename: str, timeseries: pd.Series,timestamps: pd.Series):
+        """Calculate statistics for the file for each sensor and store them in a dictionary"""
+        file_stats = {}
+        try:
+            print(f"loading file: {self.filepath}")
+            for sensor in sensorlist:
+                row={stat.name: stat.aggregation_function(self.get_data(sensor.name),self.get_time()) for stat in sensor.statistics}
+                file_stats[sensor.name] = row
+        except Exception as e:
+            print(f"Error generating statistics for file {self.filepath}: {e}")
+            return False, {}
+        return True, file_stats
+
 
     def plot_timeseries(self,sensor_name:str, axis=None,scale:float=None,offset: float = None,label=None):
         """Plot the data for a given sensor"""

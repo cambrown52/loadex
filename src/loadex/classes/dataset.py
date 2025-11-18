@@ -1,3 +1,4 @@
+import multiprocessing
 from pathlib import Path
 
 import pandas as pd
@@ -55,7 +56,7 @@ class DataSet(object):
         sensorlist = [Sensor(name) for name in self.filelist[fileindex].sensor_names]
         self.sensorlist= SensorList(sensorlist)
 
-    def generate_statistics(self,filelistindex=None):
+    def generate_statistics(self,filelistindex=None,parallel:bool=False,processes:int=8):
         """Generate statistics for each sensor across all files"""
         if not self.filelist:
             raise ValueError("Filelist is empty. Please find files first.")
@@ -69,25 +70,42 @@ class DataSet(object):
         else:
             files_to_process=self.filelist
 
-        for file in files_to_process:
-            print(f"loading file: {file.filepath}")
-            try:
-                time=file.get_time()
-                sensor_names=file.sensor_names
-
-                for sensor in self.sensorlist:
-                    if sensor.name in sensor_names:
-                        sensor.calculate_statistics(file.filepath, file.get_data(sensor.name),time)
-                    else:
-                        print(f"Warning: Sensor '{sensor.name}' not found in file '{file.filepath}'.")
+        cached_data={}
+        if parallel==False:
+            for file in files_to_process:
+            
+                success, file_stats = file.generate_statistics(self.sensorlist)
+                if not success:
+                    failed.append(file.filepath)
+                    continue
+                else:
+                    cached_data[file.filepath]=file_stats
+        else:
+            with multiprocessing.Pool(processes=processes) as pool:
+                results = []
+                for file in files_to_process:
+                    print(f"adding file to queue: {file.filepath}")
+                    file.clear_connections()
+                    result = pool.apply_async(file.generate_statistics, args=(self.sensorlist,))
+                    results.append((file.filepath, result))
                 
-            except Exception as e:
-                print(e)
-                failed.append(file.filepath)
-                continue
+                for filepath, result in results:
+                    success, file_stats = result.get()
+                    if not success:
+                        print(f"failed to load file: {filepath}")
+                        failed.append(filepath)
+                        continue
+                    else:
+                        print(f"finished loading file: {filepath}")
+                        cached_data[filepath]=file_stats
+
+        # Now populate sensor data from cached_data
+        cached_data=pd.DataFrame.from_dict(cached_data, orient='index')
         
+        cached_data.index.name="filename"
         for sensor in self.sensorlist:
-            sensor._insert_cached_data()
+            sensor_data=pd.DataFrame(cached_data[sensor.name].values.tolist(),index=cached_data.index)
+            sensor._insert_generated_statistics(sensor_data)
             
         if failed:
             print("failed to load:")
