@@ -123,12 +123,26 @@ class FileList(list):
     @staticmethod
     def from_sql(session, format_class) -> "FileList":
         """Load filelist from database"""
-        files = []
+        
+        print("Loading file list from database...")
+
+        
+        # load all files from database
         db_files = session.query(datamodel.File).all()
+        
+        # bulk load file attributes
+        sql_query = session.query(datamodel.FileAttribute)
+        df_file_attributes=pd.read_sql(sql_query.statement, session.get_bind(), index_col='file_id')
+        
+        files = []
         for db_file in db_files:
-            metadata = {}
-            for attr in db_file.attributes:
-                metadata[attr.key] = json.loads(attr.value)
+            # get attributes for this file
+            if db_file.id in df_file_attributes.index:
+                metadata = {row.key: json.loads(row.value) for index, row in df_file_attributes.loc[db_file.id,:].iterrows()}
+            else:
+                metadata = {}
+
+            # create file object
             file = format_class(db_file.filepath, metadata)
             files.append(file)
         
