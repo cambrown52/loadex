@@ -107,62 +107,26 @@ class Sensor(object):
     
     @staticmethod
     def from_sql(session,db_sensor):
+        # convert metadata to dict
         metadata = {}
         for attr in db_sensor.attributes:
             metadata[attr.key] = json.loads(attr.value)
 
+        # load custom statistic types
         db_statistic_types=session.query(datamodel.StatisticType)\
             .join(datamodel.CustomStatistic,
                   datamodel.StatisticType.id==datamodel.CustomStatistic.statistic_type_id)\
             .filter(datamodel.CustomStatistic.sensor_id==db_sensor.id).all()
         
-        
-        print(f"{db_sensor.name}: {[stat.name for stat in db_statistic_types]} ({len(db_statistic_types)})")
+        # convert ststistic types to Statistics object list
         statistics_list = statistics.standard_statistics.copy()
         for db_statistic_type in db_statistic_types:
             statistic = statistics.CustomStatistic.from_sql(session, db_statistic_type)
             statistics_list.append(statistic)
-          
-        sensor = Sensor(db_sensor.name, metadata=metadata,statistics_list=statistics_list)
-
-        sensor.read_statistics(session,db_sensor)
-
-        # Load statistics if needed
-        return sensor
         
-    def read_statistics(self,session,db_sensor):
+        # create sensor object
+        return Sensor(db_sensor.name, metadata=metadata,statistics_list=statistics_list)
         
-        # Load standard statistics
-        sql_query=session.query(
-            datamodel.File.filepath,
-            datamodel.StandardStatistic.mean,
-            datamodel.StandardStatistic.max,
-            datamodel.StandardStatistic.min,
-            datamodel.StandardStatistic.std,
-            ).join(datamodel.StandardStatistic.file)\
-            .filter(datamodel.StandardStatistic.sensor_id==db_sensor.id)
-        
-        df_standard_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
-
-        
-        custom_stats=set(self.statistics)-set(statistics.standard_statistics)
-        if len(custom_stats) == 0:
-            self.data = df_standard_stats
-        else:
-            sql_query=session.query(
-                datamodel.File.filepath,
-                datamodel.CustomStatistic.value,
-                datamodel.StatisticType.name.label('stat_type'),
-            ).join(datamodel.CustomStatistic.file)\
-            .join(datamodel.CustomStatistic.statistic_type)\
-            .filter(datamodel.CustomStatistic.sensor_id==db_sensor.id)
-
-            df_custom_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
-
-            df_custom_stats=df_custom_stats.pivot(columns='stat_type', values='value')
-
-            self.data = pd.concat([df_standard_stats, df_custom_stats], axis=1)
-            
     
     def __repr__(self):
         return f"Sensor({self.name})"
@@ -203,13 +167,71 @@ class SensorList(list):
         for sensor in self:
             sensor.to_sql(session,file_id)
 
+    def read_statistics(self,session,db_sensors=None):
+        """Read statistics for all sensors in the list from the database"""
+        
+        # Load standard statistics
+        print("Loading standard statistics from database...")
+        sql_query=session.query(
+            datamodel.File.filepath,
+            datamodel.Sensor.name.label('sensor_name'),
+            datamodel.StandardStatistic.mean,
+            datamodel.StandardStatistic.max,
+            datamodel.StandardStatistic.min,
+            datamodel.StandardStatistic.std,
+            ).join(datamodel.StandardStatistic.file)\
+            .join(datamodel.StandardStatistic.sensor)
+        
+        if db_sensors is not None:
+            sql_query = sql_query.filter(datamodel.StandardStatistic.sensor_id.in_([s.id for s in db_sensors]))
+        
+        df_standard_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
+
+        # Load custom statistics
+        print("Loading custom statistics from database...")
+        sql_query=session.query(
+            datamodel.File.filepath,
+            datamodel.CustomStatistic.value,
+            datamodel.StatisticType.name.label('stat_type'),
+            datamodel.Sensor.name.label('sensor_name'),
+        ).join(datamodel.CustomStatistic.file)\
+        .join(datamodel.CustomStatistic.statistic_type)\
+        .join(datamodel.CustomStatistic.sensor)
+
+        if db_sensors is not None:
+            sql_query = sql_query.filter(datamodel.CustomStatistic.sensor_id.in_([s.id for s in db_sensors]))
+
+        df_custom_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
+
+        # Insert statistics into sensors
+        print("Inserting statistics into sensors...")
+        for sensor in self:
+            
+            # filter dataframes for this sensor
+            df_sensor_standard_stats = df_standard_stats[df_standard_stats['sensor_name'] == sensor.name].drop(columns=['sensor_name'])
+            df_sensor_custom_stats = df_custom_stats[df_custom_stats['sensor_name'] == sensor.name].drop(columns=['sensor_name'])
+
+            # merge dataframes if custom stats exist
+            if not df_sensor_custom_stats.empty:
+                df_sensor_custom_stats = df_sensor_custom_stats.pivot(columns='stat_type', values='value')
+                df_sensor_stats=pd.concat([df_sensor_standard_stats, df_sensor_custom_stats], axis=1)
+            else:
+                df_sensor_stats = df_sensor_standard_stats
+            
+            # add data to sensor
+            print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
+            sensor._insert_generated_statistics(df_sensor_stats)
+
     @staticmethod
     def from_sql(session):
+        # load sensor list from database
         db_sensors = session.query(datamodel.Sensor).all()
-        sensors = []
-        for db_sensor in db_sensors:
-            sensor = Sensor.from_sql(session, db_sensor)
+    
+        # convert to Sensor objects in SensorList
+        sensorlist=[Sensor.from_sql(session, db_sensor) for db_sensor in db_sensors]
+        sensorlist=SensorList(sensorlist)
 
-            # Load statistics if needed
-            sensors.append(sensor)
-        return SensorList(sensors)
+        # load statistics
+        sensorlist.read_statistics(session)
+
+        return sensorlist
