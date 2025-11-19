@@ -147,3 +147,51 @@ class FileList(list):
             files.append(file)
         
         return FileList(files)
+    
+    def to_df(self)->pd.DataFrame:
+        return self.metadata
+
+    @property
+    def metadata(self)->pd.DataFrame:
+        """Return a DataFrame with metadata for all files in the filelist"""
+        metadata_list = []
+        for id,file in enumerate(self):
+            metadata = {'filepath': str(file.filepath), "id":id}
+            metadata.update(file.metadata)
+            metadata_list.append(metadata)
+        
+        return pd.DataFrame(metadata_list).set_index('filepath')
+    
+    
+    @metadata.setter
+    def metadata(self,df:pd.DataFrame):
+        """Add metadata from a DataFrame to the files in the filelist"""
+        for file in self:
+            if str(file.filepath) in df.index:
+                file.metadata.update(df.loc[str(file.filepath)].to_dict())
+
+    def to_index(self):
+        """Return a list of file paths in the filelist"""
+        return pd.Index([str(file.filepath) for file in self])
+    
+    def _get_plotdata(self,spec:dict)->pd.Series:
+        """Return data for plotting"""
+        defaults = {
+            'statistic': "id",
+            'scale': 1.0,
+            'fillna': False,
+            'marker': None,
+        }
+
+        if isinstance(spec,str):
+            spec={"name":spec}
+        
+        spec={**defaults, **spec}
+        if "label" not in spec:
+            spec["label"]=spec["name"]+" "+spec["statistic"]
+
+        x=self.metadata[spec["statistic"]]*spec["scale"]
+        if spec["fillna"]:
+            x=x.fillna(spec["fillna"])
+        spec["data"]=x
+        return spec

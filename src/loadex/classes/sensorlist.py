@@ -224,7 +224,7 @@ class SensorList(list):
                 df_sensor_stats = df_sensor_standard_stats
             
             # add data to sensor
-            print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
+            #print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
             sensor._insert_generated_statistics(df_sensor_stats)
 
     @staticmethod
@@ -241,3 +241,30 @@ class SensorList(list):
         sensorlist.read_statistics(session)
 
         return sensorlist
+    
+    def _get_plotdata(self,spec:dict,filelist)->pd.Series:
+        """Return data for plotting"""
+        defaults = {
+            'statistic': "mean",
+            'scale': 1.0,
+            'fillna': False,
+            'marker': None,
+        }
+        if isinstance(spec,str):
+            spec={"name":spec}
+        
+        spec={**defaults, **spec}
+        if "label" not in spec:
+            spec["label"]=spec["name"]+" ("+spec["statistic"]+")"
+
+        x=self.get_sensor(spec["name"]).data[spec["statistic"]]*spec["scale"]
+        x=x.reindex(filelist.to_index(), fill_value=pd.NA)
+        #x=x.reindex([str(file.filepath) for file in filelist], fill_value=pd.NA)
+        if spec["fillna"]:
+            x=x.fillna(spec["fillna"])
+        spec["data"]=x
+        return spec
+
+    def __repr__(self):
+        df=pd.DataFrame([{"metadata":s.metadata, "stats":[stat.name for stat in s.statistics]} for s in self], index=[s.name for s in self])
+        return df.to_string()

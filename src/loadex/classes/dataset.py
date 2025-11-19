@@ -1,7 +1,9 @@
 import multiprocessing
 from pathlib import Path
 
+import plotly.graph_objects as go
 import pandas as pd
+
 from loadex.classes.filelist import File, FileList
 from loadex.classes.sensorlist import Sensor, SensorList
 from loadex.formats.bladed_out_file import BladedOutFile
@@ -39,6 +41,12 @@ class DataSet(object):
             raise ValueError("Sensorlist is empty. Please set sensors first.")
 
         df_list = []
+        # add filelist metadata
+        file_df = self.filelist.metadata
+        file_df.columns = pd.MultiIndex.from_product([["filelist"], file_df.columns])
+        df_list.append(file_df)
+
+        # add sensor data
         for sensor in self.sensorlist:
             sensor_df = sensor.data.copy()
             sensor_df.columns = pd.MultiIndex.from_product([[sensor.name], sensor_df.columns])
@@ -127,8 +135,9 @@ class DataSet(object):
     def from_sql(database_file:str, name:str=None,format=BladedOutFile)->"DataSet":
         """Read the dataset from a SQLite database"""
         if not name:
-            name=Path(database_file).name
-
+            name=Path(database_file).stem
+        
+        print(f"Loading dataset '{name}' from database: {database_file}")
         ds=DataSet(name=name, format=format)
         Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
         with Session() as session:
@@ -138,6 +147,7 @@ class DataSet(object):
             # Read sensors
             ds.sensorlist=SensorList.from_sql(session)
         
+        print(f"Finished Loading dataset '{name}'!")
         return ds
 
     def __repr__(self):
@@ -145,7 +155,37 @@ class DataSet(object):
 
     def __str__(self):
         return f"DataSet: {self.name}"
+    
+    def plot_stats(self,y:list,x:dict=None,fig=None):
+        """Plot statistics for a given sensor"""
 
+        if not isinstance(y,list):
+            y_list=[y]
+        else:
+            y_list=y
+        
+        if fig is None:
+            fig=go.Figure()
+
+        if x:
+            x=self._get_plotdata(x)
+            fig.update_layout(xaxis_title=x["label"])
+        else:
+            x={"data":None}
+
+        for y in y_list:
+            y=self._get_plotdata(y)
+            fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=y["label"],hovertext=y["data"].index, marker=y["marker"]))
+            fig.update_layout(yaxis_title=y["label"])
+        
+
+        return fig
+    
+    def _get_plotdata(self,spec:dict)->pd.Series:
+        if spec == "filelist" or (isinstance(spec, dict) and spec.get("name") == "filelist"):
+            return self.filelist._get_plotdata(spec=spec)
+        else:
+            return self.sensorlist._get_plotdata(spec=spec,filelist=self.filelist)
 
 
 
