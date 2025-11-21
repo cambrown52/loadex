@@ -266,5 +266,7 @@ class SensorList(list):
         return spec
 
     def __repr__(self):
-        df=pd.DataFrame([{"metadata":s.metadata, "stats":[stat.name for stat in s.statistics]} for s in self], index=[s.name for s in self])
+        df=pd.DataFrame([s.metadata for s in self], index=[s.name for s in self])
+        df["stats"]={s.name: [stat.name for stat in s.statistics] for s in self}
+        df.index.name="sensor_name"
         return df.to_string()

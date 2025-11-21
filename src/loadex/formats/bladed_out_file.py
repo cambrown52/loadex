@@ -33,6 +33,40 @@ class BladedOutFile(File):
     def sensor_names(self):
         return [sensor.name for sensor in self.sensors]
     
+    def get_sensor_metadata(self,sensor_name:str)->dict:
+        """Return a dictionary with metadata for all sensors in the file"""
+        sensor=self.sensors.get(sensor_name)
+        return sensor.metadata
+
+    def set_metadata_from_file(self) -> dict:
+        self.metadata["run_name"]=self.run.name
+        self.metadata["calculation_type"]=self.run.calculation_type
+        self.metadata["calculation_descriptive_name"]=self.run.calculation_descriptive_name
+        self.metadata["is_turbine_simulation"]=self.run.is_turbine_simulation
+        self.metadata["was_successful"]=self.run.was_successful
+        self.metadata["has_finished"]=self.run.has_finished
+        self.metadata["completion_state"]=self.run.completion_state
+        self.metadata["run_at_timestamp"]=self.run.timestamp
+        try:
+            self.metadata["execution_duration_seconds"]=self.run.execution_duration_seconds
+        except RuntimeError as e:
+            print("Cannot get run execution duration")
+
+
+        all_groups = self.run.get_groups()
+        self.metadata["number_of_sensor_groups"]=all_groups.size    
+        self.metadata["groups"]=dict(sorted({group.number:group.name for group in all_groups}.items()))
+
+        # try:
+        #     self.metadata["message_file_content"]=self.run.message_file_content
+        # except RuntimeError as e:
+        #     print("Cannot get run message file ($ME) content")
+
+        try:
+            self.metadata["termination_file_content"]=self.run.termination_file_content
+        except RuntimeError as e:
+            print("Cannot get run termination file ($TE) content")
+
     def clear_connections(self):
         self._run = None
         self._sensors = None
@@ -182,6 +216,14 @@ class Bladed1DSensor(BladedSensor):
             self._name = self.group_name + " " + self.variable_name
         return self._name
     
+    @property
+    def metadata(self):
+        return {
+            "group_name": self.group_name,
+            "variable_name": self.variable_name,
+            "unit": self.unit,
+        }
+    
     def get_data(self):
         return self.variable.get_data()
     
@@ -207,6 +249,16 @@ class Bladed2DSensor(BladedSensor):
             return ""
         return unit
     
+    @property
+    def metadata(self):
+        return {
+            "group_name": self.group_name,
+            "variable_name": self.variable_name,
+            "unit": self.unit,
+            "independent_variable_name": self.independent_variable.name,
+            "independent_variable_value": self.independent_variable_value,
+        }
+
     def get_data(self):
         return self.variable.get_data_at_value(self.independent_variable_value)
     

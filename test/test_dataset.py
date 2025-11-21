@@ -49,9 +49,10 @@ def test_load_dataset():
     ds_reload=loadex.DataSet.from_sql(str(sqlite_database),name="test_reload",format=BladedOutFile)
     # compare dataset
     assert ds_reload.n_files==ds.n_files
+    assert len(ds_reload.filelist)==len(ds.filelist)
     assert len(ds_reload.sensorlist)==len(ds.sensorlist)
 
-    assert ds.to_df().shape == ds_reload.to_df().shape
+    assert ds_reload.to_df().shape == ds.to_df().shape
     
     # spot check comparison of a sensor
     sens_reload=ds_reload.sensorlist.get_sensors("Tower Mx")[0]

@@ -20,6 +20,14 @@ class File(object):
     @abstractmethod
     def sensor_names(self) -> List[str]:
         pass
+
+    def get_sensor_metadata(self,sensor_name:str)->Dict:
+        """Return a dictionary with metadata for all sensors in the file"""
+        return {}
+    
+    @abstractmethod
+    def set_metadata_from_file(self) -> dict:
+        pass
     
     @abstractmethod
     def get_time(self) -> pd.Series:
@@ -43,6 +51,7 @@ class File(object):
         file_stats = {}
         try:
             print(f"loading file: {self.filepath}")
+            self.set_metadata_from_file()
             for sensor in sensorlist:
                 row={stat.name: stat.aggregation_function(self.get_data(sensor.name),self.get_time()) for stat in sensor.statistics}
                 file_stats[sensor.name] = row
@@ -116,7 +125,7 @@ class FileList(list):
         file_id={}
         for file in self:
             db_file = file.to_sql(session)
-            file_id[file.filepath] = db_file.id
+            file_id[str(file.filepath)] = db_file.id
         
         return pd.Series(file_id, name="file_id")
     

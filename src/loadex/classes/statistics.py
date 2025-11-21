@@ -1,5 +1,6 @@
 import json
 import sys
+import copy
 from pyparsing import abstractmethod
 import rainflow
 import pandas as pd
@@ -16,6 +17,10 @@ class Statistic(object):
     @abstractmethod
     def aggregation_function(self, timeseries: pd.Series, timestamps: pd.Series):
          raise NotImplementedError("Subclasses must implement aggregation_function")
+    
+    def copy(self):
+        """Return a copy of the statistic"""
+        return copy.deepcopy(self)
     
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"

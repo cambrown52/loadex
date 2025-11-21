@@ -61,7 +61,7 @@ class DataSet(object):
         """Set sensors from the first file in the filelist"""
         if not self.filelist:
             raise ValueError("Filelist is empty. Please find files first.")    
-        sensorlist = [Sensor(name) for name in self.filelist[fileindex].sensor_names]
+        sensorlist = [Sensor(name,metadata=self.filelist[fileindex].get_sensor_metadata(name)) for name in self.filelist[fileindex].sensor_names]
         self.sensorlist= SensorList(sensorlist)
 
     def generate_statistics(self,filelistindex=None,parallel:bool=False,processes:int=8):
@@ -87,7 +87,7 @@ class DataSet(object):
                     failed.append(file.filepath)
                     continue
                 else:
-                    cached_data[file.filepath]=file_stats
+                    cached_data[str(file.filepath)]=file_stats
         else:
             with multiprocessing.Pool(processes=processes) as pool:
                 results = []
@@ -95,7 +95,7 @@ class DataSet(object):
                     print(f"adding file to queue: {file.filepath}")
                     file.clear_connections()
                     result = pool.apply_async(file.generate_statistics, args=(self.sensorlist,))
-                    results.append((file.filepath, result))
+                    results.append((str(file.filepath), result))
                 
                 for filepath, result in results:
                     success, file_stats = result.get()
