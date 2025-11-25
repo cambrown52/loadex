@@ -139,7 +139,7 @@ class DataSet(object):
         
         print(f"Loading dataset '{name}' from database: {database_file}")
         ds=DataSet(name=name, format=format)
-        Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
+        Session=get_sqlite_session(database_file,create_if_not_exists=False)  # Ensure DB and tables are created
         with Session() as session:
             # Read files
             ds.filelist=FileList.from_sql(session, ds.format)
