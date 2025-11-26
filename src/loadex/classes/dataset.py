@@ -35,7 +35,7 @@ class DataSet(object):
         """Return the number of files in the filelist"""
         return len(self.filelist) 
 
-    def to_df(self):
+    def to_dataframe(self):
         """Return a DataFrame with all statistics for all sensors"""
         if not self.sensorlist:
             raise ValueError("Sensorlist is empty. Please set sensors first.")

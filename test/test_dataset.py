@@ -35,7 +35,7 @@ def test_load_dataset():
     ds.generate_statistics()
 
     print("Generated statistics.")
-    df=ds.to_df()
+    df=ds.to_dataframe()
     print(df)
 
     assert not df.empty
@@ -52,7 +52,7 @@ def test_load_dataset():
     assert len(ds_reload.filelist)==len(ds.filelist)
     assert len(ds_reload.sensorlist)==len(ds.sensorlist)
 
-    assert ds_reload.to_df().shape == ds.to_df().shape
+    assert ds_reload.to_dataframe().shape == ds.to_dataframe().shape
     
     # spot check comparison of a sensor
     sens_reload=ds_reload.sensorlist.get_sensors("Tower Mx")[0]

@@ -157,7 +157,8 @@ class FileList(list):
         
         return FileList(files)
     
-    def to_df(self)->pd.DataFrame:
+    def to_dataframe(self)->pd.DataFrame:
+        """Return a DataFrame with metadata for all files in the filelist"""
         return self.metadata
 
     @property
