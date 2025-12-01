@@ -6,7 +6,7 @@ import pandas as pd
 class BladedOutFile(File):
     """Contains a Bladed .out file from a loads dataset"""
 
-    def __init__(self, filepath: str,metadata:dict=dict()):
+    def __init__(self, filepath: str,metadata:dict=None):
         super().__init__(filepath,metadata)
         self._run = None
         self._sensors = None
@@ -47,6 +47,11 @@ class BladedOutFile(File):
         self.metadata["has_finished"]=self.run.has_finished
         self.metadata["completion_state"]=self.run.completion_state
         self.metadata["run_at_timestamp"]=self.run.timestamp
+
+        group=self.run.get_group('Summary information')
+        self.metadata["time_domain_simulation_length"]=group.time_domain_simulation_length
+        self.metadata["time_domain_simulation_output_start_time"]=group.time_domain_simulation_output_start_time
+        self.metadata["time_domain_simulation_output_timestep"]=group.time_domain_simulation_output_timestep
         try:
             self.metadata["execution_duration_seconds"]=self.run.execution_duration_seconds
         except RuntimeError as e:

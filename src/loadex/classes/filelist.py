@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Dict
 import json
 
+from loadex.classes.designloadcases import DesignLoadCase
 from loadex.data import datamodel
 from loadex.classes.sensorlist import SensorList
 
@@ -12,9 +13,13 @@ from loadex.classes.sensorlist import SensorList
 class File(object):
     """Contains a file from a loads dataset"""
 
-    def __init__(self, filepath: str,metadata:Dict=dict()):
+    def __init__(self, filepath: str,metadata:Dict=None):
         self.filepath = Path(filepath)
-        self.metadata = metadata
+        self.metadata = metadata if metadata is not None else {}
+
+        self.dlc = None
+        self.group = None
+        self.hours = None
 
     @property
     @abstractmethod
@@ -113,13 +118,67 @@ class FileList(list):
                 return file
         raise ValueError(f"File '{name}' not found in filelist.")
 
-    def get_files(self,pattern: str)->"FileList":
+    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None )->"FileList":
         """Return a list of files by pattern"""
-        file=[f for f in self if f.filepath.full_match(pattern)]
-        if len(file)==0:
-            raise ValueError(f"No files found matching pattern '{pattern}'.")
+        file=self
+        if pattern:
+            file=[f for f in file if f.filepath.full_match(pattern)]
+            if len(file)==0:
+                raise ValueError(f"No files found matching pattern '{pattern}'.")
+        
+        if dlc:
+            file=[f for f in file if f.dlc==dlc]
+
         return FileList(file)
     
+    def set_dlc(self,dlc: "DesignLoadCase"):
+        """Set the DLC for all files in the filelist"""
+        for file in self:
+            file.dlc=dlc
+
+    def get_dlc(self)->pd.Series:
+        """Return a Series with the DLC for all files in the filelist"""
+        dlc_dict={}
+        for file in self:
+            dlc_dict[str(file.filepath)]=file.dlc.name if file.dlc is not None else None
+        return pd.Series(dlc_dict, name="dlc")
+    
+    def set_hours(self,hours:pd.Series):
+        """Set the hours for all files in the filelist from a Series with filepaths as index"""
+        for file in self:
+            if str(file.filepath) in hours.index:
+                file.hours=hours.loc[str(file.filepath)]
+
+    def get_hours(self)->pd.Series:
+        """Return a Series with the hours for all files in the filelist"""
+        hours_dict={}
+        for file in self:
+            hours_dict[str(file.filepath)]=file.hours
+        return pd.Series(hours_dict, name="hours")
+    
+    def set_groups(self,groups:pd.Series):
+        """Set the groups for all files in the filelist from a Series with filepaths as index"""
+        for file in self:
+            if str(file.filepath) in groups.index:
+                file.group=groups.loc[str(file.filepath)]
+
+    def get_groups(self)->pd.Series:
+        """Return a Series with the groups for all files in the filelist"""
+        groups_dict={}
+        for file in self:
+            groups_dict[str(file.filepath)]=file.group
+        return pd.Series(groups_dict, name="group")
+    
+    def by_group(self)->Dict[str,"FileList"]:
+        """Return a dictionary of FileLists by group"""
+        group_dict={}
+        for file in self:
+            group=file.group if file.group is not None else "ungrouped"
+            if group not in group_dict:
+                group_dict[group]=FileList()
+            group_dict[group].append(file)
+        return group_dict
+
     def to_sql(self,session):
         """Store filelist in database"""
         file_id={}
@@ -159,7 +218,7 @@ class FileList(list):
     
     def to_dataframe(self)->pd.DataFrame:
         """Return a DataFrame with metadata for all files in the filelist"""
-        return self.metadata
+        return pd.concat([self.get_dlc(),self.get_groups(),self.get_hours(), self.metadata ], axis=1, join='outer')
 
     @property
     def metadata(self)->pd.DataFrame:
@@ -179,6 +238,11 @@ class FileList(list):
         for file in self:
             if str(file.filepath) in df.index:
                 file.metadata.update(df.loc[str(file.filepath)].to_dict())
+
+    def set_metadata_from_files(self):
+        """Set metadata for all files in the filelist from the files themselves"""
+        for file in self:
+            file.set_metadata_from_file()
 
     def to_index(self):
         """Return a list of file paths in the filelist"""

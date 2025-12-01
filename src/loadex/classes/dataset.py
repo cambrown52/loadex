@@ -4,8 +4,10 @@ from pathlib import Path
 import plotly.graph_objects as go
 import pandas as pd
 
+from loadex.classes.designloadcases import DesignLoadCase, DesignLoadCaseList
 from loadex.classes.filelist import File, FileList
 from loadex.classes.sensorlist import Sensor, SensorList
+from loadex.classes.statistics import Statistic, EquivalentLoad
 from loadex.formats.bladed_out_file import BladedOutFile
 from loadex.data.database import get_sqlite_session
 from loadex.data import datamodel
@@ -20,6 +22,7 @@ class DataSet(object):
         self.format=format
         self.filelist = []
         self.sensorlist = []
+        self.dlcs = DesignLoadCaseList([])
         self.timecolumn = 'time'
 
     def find_files(self, directories: list[str], pattern: str=None):
@@ -30,6 +33,20 @@ class DataSet(object):
         filelist = [self.format(f) for dir in directories for f in Path(dir).rglob(pattern) ]
         self.filelist = FileList(filelist)
     
+    def add_dlc(self, name: str, type: str, psf: float = 1.0) -> None:
+        """Add a design load case to the dataset"""
+
+        if type not in ["Fatigue", "Ultimate"]:
+            raise ValueError(f"Invalid type '{type}'. Must be 'Fatigue' or 'Ultimate'.")
+        
+        dlc = DesignLoadCase(self, name)
+        dlc.type = type
+        dlc.partial_safety_factor = psf
+
+        self.dlcs.append(dlc)
+
+        return dlc
+
     @property
     def n_files(self):
         """Return the number of files in the filelist"""
@@ -156,6 +173,35 @@ class DataSet(object):
     def __str__(self):
         return f"DataSet: {self.name}"
     
+    def equivalent_load(self, sensor_names: list[str], m: float,Nref: float=1e7) -> pd.DataFrame:
+        """Calculate equivalent load for given sensors and m value"""
+        
+        hours=self.filelist.get_hours()
+        data=[]
+        for sensor_name in sensor_names:
+            sensor = self.sensorlist.get_sensor(sensor_name)
+            
+            stat=[stat for stat in sensor.statistics if isinstance(stat, EquivalentLoad) and stat.params["m"] == m]
+            if len(stat)==0:
+                raise ValueError(f"EquivalentLoad statistic with m={m} not found for sensor '{sensor_name}'. Please add it first.")
+            
+            stat=stat[0].name
+            Leq=sensor.data[stat]
+            Leq.name=sensor_name
+            data.append(Leq)
+        
+        df=pd.concat(data,axis=1)
+        df.columns.name="sensor"
+        df=df.stack().reset_index().set_index("filename").rename(columns={0: "DEL1Hz"})
+        df=df.join(hours, on="filename", how="left")
+        
+        result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m * 3600 * x["hours"]).sum() / Nref )**(1/m) )
+        result=result.to_frame(name="equivalent_load")
+        result["m"]=m
+        result["Nref"]=Nref
+        return result
+            
+
     def plot_stats(self,y:list,x:dict=None,fig=None):
         """Plot statistics for a given sensor"""
 
