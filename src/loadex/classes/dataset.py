@@ -173,33 +173,40 @@ class DataSet(object):
     def __str__(self):
         return f"DataSet: {self.name}"
     
-    def equivalent_load(self, sensor_names: list[str], m: float,Nref: float=1e7) -> pd.DataFrame:
+    def equivalent_load(self, sensor_names: list[str], m: float | list[float],Nref: float=1e7) -> pd.DataFrame:
         """Calculate equivalent load for given sensors and m value"""
         
         hours=self.filelist.get_hours()
-        data=[]
-        for sensor_name in sensor_names:
-            sensor = self.sensorlist.get_sensor(sensor_name)
-            
-            stat=[stat for stat in sensor.statistics if isinstance(stat, EquivalentLoad) and stat.params["m"] == m]
-            if len(stat)==0:
-                raise ValueError(f"EquivalentLoad statistic with m={m} not found for sensor '{sensor_name}'. Please add it first.")
-            
-            stat=stat[0].name
-            Leq=sensor.data[stat]
-            Leq.name=sensor_name
-            data.append(Leq)
         
-        df=pd.concat(data,axis=1)
-        df.columns.name="sensor"
-        df=df.stack().reset_index().set_index("filename").rename(columns={0: "DEL1Hz"})
-        df=df.join(hours, on="filename", how="left")
+        if isinstance(m,float) or isinstance(m,int):
+            m=[m]
+        results=[]
+        for m_value in m:
+            data=[]
+            for sensor_name in sensor_names:
+                sensor = self.sensorlist.get_sensor(sensor_name)
+            
+                stat=[stat for stat in sensor.statistics if isinstance(stat, EquivalentLoad) and stat.params["m"] == m_value]
+                if len(stat)==0:
+                    raise ValueError(f"EquivalentLoad statistic with m={m_value} not found for sensor '{sensor_name}'. Please add it first.")
+            
+                stat=stat[0].name
+                Leq=sensor.data[stat]
+                Leq.name=f"{sensor_name}_m{m_value}"
+                data.append(Leq)
         
-        result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m * 3600 * x["hours"]).sum() / Nref )**(1/m) )
-        result=result.to_frame(name="equivalent_load")
-        result["m"]=m
-        result["Nref"]=Nref
-        return result
+            df=pd.concat(data,axis=1)
+            df.columns.name="sensor"
+            df=df.stack().reset_index().set_index("filename").rename(columns={0: "DEL1Hz"})
+            df=df.join(hours, on="filename", how="left")
+        
+            result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m_value * 3600 * x["hours"]).sum() / Nref )**(1/m_value) )
+            result=result.to_frame(name="equivalent_load")
+            result["m"]=m_value
+            result["Nref"]=Nref
+            results.append(result)
+
+        return pd.concat(results)
             
 
     def plot_stats(self,y:list,x:dict=None,fig=None):
@@ -221,7 +228,7 @@ class DataSet(object):
 
         for y in y_list:
             y=self._get_plotdata(y)
-            fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=y["label"],hovertext=y["data"].index, marker=y["marker"]))
+            fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=self.name+" "+y["label"],hovertext=y["data"].index, marker=y["marker"]))
             fig.update_layout(yaxis_title=y["label"])
         
 

@@ -218,7 +218,9 @@ class FileList(list):
     
     def to_dataframe(self)->pd.DataFrame:
         """Return a DataFrame with metadata for all files in the filelist"""
-        return pd.concat([self.get_dlc(),self.get_groups(),self.get_hours(), self.metadata ], axis=1, join='outer')
+        df=pd.concat([self.get_dlc(),self.get_groups(),self.get_hours(), self.metadata ], axis=1, join='outer')
+        df.index.name="filepath"
+        return df
 
     @property
     def metadata(self)->pd.DataFrame:
