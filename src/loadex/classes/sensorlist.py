@@ -103,8 +103,11 @@ class Sensor(object):
         #custom_stats.to_sql('custom_statistics', session.get_bind(), if_exists='append', index=False)
         
         session.commit()
-        
     
+    def has_statistic(self,statistic_name:str)->bool:
+        """Return True if the sensor has the given statistic"""
+        return statistic_name in [stat.name for stat in self.statistics]
+        
     def __repr__(self):
         return f"Sensor({self.name})"
 
@@ -122,11 +125,17 @@ class SensorList(list):
                 return sensor
         raise ValueError(f"Sensor '{name}' not found in sensorlist.")
     
-    def get_sensors(self, pattern: str) -> "SensorList":
+    def get_sensors(self, pattern: str=None,has_statistic:str=None) -> "SensorList":
         """Return a list of sensors by pattern"""
-        sensors = [s for s in self if pattern in s.name]
-        if len(sensors) == 0:
-            raise ValueError(f"No sensors found matching pattern '{pattern}'.")
+        sensors=self
+        if pattern:
+            sensors = [s for s in self if pattern in s.name]
+            if len(sensors) == 0:
+                raise ValueError(f"No sensors found matching pattern '{pattern}'.")
+        
+        if has_statistic:
+            sensors = [s for s in sensors if s.has_statistic(has_statistic)]
+
         return SensorList(sensors)
 
     def add_rainflow_statistics(self, m: list[float] = [3,4,5]):
@@ -264,9 +273,12 @@ class SensorList(list):
             x=x.fillna(spec["fillna"])
         spec["data"]=x
         return spec
-
-    def __repr__(self):
+    def to_dataframe(self):
+        """Return a DataFrame representation of the SensorList"""
         df=pd.DataFrame([s.metadata for s in self], index=[s.name for s in self])
         df["stats"]={s.name: [stat.name for stat in s.statistics] for s in self}
         df.index.name="sensor_name"
-        return df.to_string()
+        return df
+    
+    def __repr__(self):
+        return self.to_dataframe().to_string()
