@@ -143,6 +143,13 @@ class FileList(list):
             dlc_dict[str(file.filepath)]=file.dlc.name if file.dlc is not None else None
         return pd.Series(dlc_dict, name="dlc")
     
+    def get_psf(self)->pd.Series:
+        """Return a Series with the partial safety factor for all files in the filelist"""
+        psf_dict={}
+        for file in self:
+            psf_dict[str(file.filepath)]=file.dlc.partial_safety_factor if file.dlc is not None else None
+        return pd.Series(psf_dict, name="partial_safety_factor")
+    
     def set_hours(self,hours:pd.Series):
         """Set the hours for all files in the filelist from a Series with filepaths as index"""
         for file in self:
@@ -218,7 +225,7 @@ class FileList(list):
     
     def to_dataframe(self)->pd.DataFrame:
         """Return a DataFrame with metadata for all files in the filelist"""
-        df=pd.concat([self.get_dlc(),self.get_groups(),self.get_hours(), self.metadata ], axis=1, join='outer')
+        df=pd.concat([self.get_dlc(),self.get_groups(),self.get_psf(),self.get_hours(), self.metadata ], axis=1, join='outer')
         df.index.name="filepath"
         return df
 

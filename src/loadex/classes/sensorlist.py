@@ -1,5 +1,5 @@
 import json
-from loadex.classes import statistics
+from loadex.classes import statistics, filelist
 import pandas as pd
 
 from loadex.data import datamodel
@@ -104,6 +104,41 @@ class Sensor(object):
         
         session.commit()
     
+    def _extreme_load(self,filelist:"filelist.FileList")->pd.DataFrame:
+        """Return a DataFrame with extreme loads for each group"""
+
+        df_file=filelist.to_dataframe().loc[:,["dlc","group","partial_safety_factor"]]
+
+        df=pd.concat([df_file,self.data],axis=1)
+        df["absmax"]=df[["min","max"]].abs().max(axis=1)
+
+        # Define extreme calculations
+        extreme_configs = [
+            ("max", "mean_of_max", "idxmax"),
+            ("min", "mean_of_min", "idxmin"),
+            ("absmax", "mean_of_absmax", "idxmax")
+        ]
+        
+        extremes = []
+        for col, extreme_name, agg_func in extreme_configs:
+            result = (
+                df[["dlc", "group", "partial_safety_factor", col]]
+                .groupby(["dlc", "group"])
+                .apply(lambda x: (x[col] * x["partial_safety_factor"]).mean())
+                .reset_index(name="value")
+            )
+            idx = getattr(result["value"], agg_func)()
+            result = result.loc[idx:idx].copy()
+            result["extreme"] = extreme_name
+            extremes.append(result)
+        
+        extremes = pd.concat(extremes, ignore_index=True)
+        extremes["sensor"] = self.name
+        extremes = extremes.set_index(["sensor", "extreme"])
+        
+        return extremes
+
+
     def has_statistic(self,statistic_name:str)->bool:
         """Return True if the sensor has the given statistic"""
         return statistic_name in [stat.name for stat in self.statistics]

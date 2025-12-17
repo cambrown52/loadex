@@ -13,7 +13,7 @@ class DesignLoadCase(object):
 
     @property
     def filelist(self):
-        return self.parent.get_files(dlc=self)
+        return self.parent.filelist.get_files(dlc=self)
     
     def get_group_names(self)->list[str]:
         """Return a list of unique groups in the DLC's files"""
