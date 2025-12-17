@@ -2,6 +2,7 @@ import multiprocessing
 from pathlib import Path
 
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from loadex.classes.designloadcases import DesignLoadCase, DesignLoadCaseList
@@ -207,32 +208,81 @@ class DataSet(object):
             results.append(result)
 
         return pd.concat(results)
+
+
+    def extreme_load(self, sensor_names: list[str]) -> pd.DataFrame:
+        """Calculate extreme load for given sensors"""
+        if self.filelist.get_groups().isna().all():
+            raise ValueError("FileList groups are not set. Please set groups first using 'set_groups' method.")
+        
+        # build dataframe with all sensor data
+        dfs= []
+        for sensor_name in sensor_names:
+            extremes_sensor = self.sensorlist.get_sensor(sensor_name)._extreme_load(filelist=self.filelist)    
+            dfs.append(extremes_sensor)
+        df=pd.concat(dfs,axis=0)
+        return df
+
             
 
-    def plot_stats(self,y:list,x:dict=None,fig=None):
+    def plot_stats(self,y:list,x:dict=None,fig=None,engine="plotly"):
         """Plot statistics for a given sensor"""
+        
+        if fig:
+            if isinstance(fig,go.Figure):
+                engine="plotly"
+            elif isinstance(fig,plt.Figure):
+                engine="matplotlib"
+            else:
+                raise ValueError("Invalid figure object. Must be plotly.graph_objects.Figure or matplotlib.pyplot.Figure.")
+
+        if engine not in ["plotly", "matplotlib"]:
+            raise ValueError(f"Invalid engine '{engine}'. Must be 'plotly' or 'matplotlib'.")
 
         if not isinstance(y,list):
             y_list=[y]
         else:
             y_list=y
         
-        if fig is None:
-            fig=go.Figure()
+        if engine == "plotly":
+            if fig is None:
+                fig=go.Figure()
 
-        if x:
-            x=self._get_plotdata(x)
-            fig.update_layout(xaxis_title=x["label"])
-        else:
-            x={"data":None}
+            if x:
+                x=self._get_plotdata(x)
+                fig.update_layout(xaxis_title=x["label"])
+            else:
+                x={"data":None}
 
-        for y in y_list:
-            y=self._get_plotdata(y)
-            fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=self.name+" "+y["label"],hovertext=y["data"].index, marker=y["marker"]))
-            fig.update_layout(yaxis_title=y["label"])
-        
+            for y in y_list:
+                y=self._get_plotdata(y)
+                fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=self.name+" "+y["label"],hovertext=y["data"].index, marker=y["marker"]))
+                fig.update_layout(yaxis_title=y["label"])
+            
 
-        return fig
+            return fig
+        else:  # matplotlib
+            if fig is None:
+                fig, ax = plt.subplots()
+            else:
+                ax = fig.gca()
+
+            if x:
+                x=self._get_plotdata(x)
+                ax.set_xlabel(x["label"])
+            else:
+                x={"data":None}
+
+            for y in y_list:
+                y=self._get_plotdata(y)
+                ax.plot(x["data"], y["data"], marker=y["marker"]["symbol"], markerfacecolor=y["marker"]["color"],markeredgecolor=y["marker"]["color"], linestyle='None', label=self.name+" "+y["label"])
+                ax.set_ylabel(y["label"])
+
+            ax.legend(loc="best")
+            ax.grid(True)
+
+            return fig
+
     
     def _get_plotdata(self,spec:dict)->pd.Series:
         if spec == "filelist" or (isinstance(spec, dict) and spec.get("name") == "filelist"):

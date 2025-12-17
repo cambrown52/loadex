@@ -112,22 +112,24 @@ class Sensor(object):
         df=pd.concat([df_file,self.data],axis=1)
         df["absmax"]=df[["min","max"]].abs().max(axis=1)
 
-        mean_of_max=df[["dlc","group","partial_safety_factor","max"]].groupby(["dlc","group"]).apply(lambda x: (x["max"] * x["partial_safety_factor"]).mean()).rename(columns={"max":"value"}).reset_index()
+        mean_of_max=df[["dlc","group","partial_safety_factor","max"]].groupby(["dlc","group"]).apply(lambda x: (x["max"] * x["partial_safety_factor"]).mean()).reset_index().rename(columns={0:"value"})
         mean_of_max=mean_of_max.loc[mean_of_max.loc[:,"value"].idxmax(),:]
         mean_of_max["extreme"]="mean_of_max"
 
-        mean_of_min=df[["dlc","group","partial_safety_factor","min"]].groupby(["dlc","group"]).apply(lambda x: (x["min"] * x["partial_safety_factor"]).mean()).rename(columns={"min":"value"}).reset_index()
+        mean_of_min=df[["dlc","group","partial_safety_factor","min"]].groupby(["dlc","group"]).apply(lambda x: (x["min"] * x["partial_safety_factor"]).mean()).reset_index().rename(columns={0:"value"})
         mean_of_min=mean_of_min.loc[mean_of_min.loc[:,"value"].idxmin(),:]
         mean_of_min["extreme"]="mean_of_min"
 
-        mean_of_absmax=df[["dlc","group","partial_safety_factor","absmax"]].groupby(["dlc","group"]).apply(lambda x: (x["absmax"] * x["partial_safety_factor"]).mean()).rename(columns={"absmax":"value"}).reset_index()
+        mean_of_absmax=df[["dlc","group","partial_safety_factor","absmax"]].groupby(["dlc","group"]).apply(lambda x: (x["absmax"] * x["partial_safety_factor"]).mean()).reset_index().rename(columns={0:"value"})
         mean_of_absmax=mean_of_absmax.loc[mean_of_absmax.loc[:,"value"].idxmax(),:]
         mean_of_absmax["extreme"]="mean_of_absmax"
 
         extremes=pd.DataFrame([mean_of_max,mean_of_min,mean_of_absmax]).reset_index(drop=True)
         
         extremes["sensor"] = self.name
-        extremes= extremes.set_index(["sensor", "extreme"])
+        
+        # set index and reorder columns
+        extremes= extremes.set_index("sensor")[["extreme","dlc","group","value"]]
         
         return extremes
 
@@ -264,6 +266,11 @@ class SensorList(list):
             #print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
             sensor._insert_generated_statistics(df_sensor_stats)
 
+    @property
+    def names(self)->list[str]:
+        """Return a list of sensor names"""
+        return [sensor.name for sensor in self]
+    
     @staticmethod
     def from_sql(session):
         # load sensor list from database
