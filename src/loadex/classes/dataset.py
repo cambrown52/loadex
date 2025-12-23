@@ -167,6 +167,30 @@ class DataSet(object):
         
         print(f"Finished Loading dataset '{name}'!")
         return ds
+    
+    @staticmethod
+    def from_dataframe(df:pd.DataFrame, name:str, format=BladedOutFile,filecolumn="filepath",sensorcolumn="sensor")->"DataSet":
+        """Create a DataSet from a DataFrame"""
+        ds=DataSet(name=name, format=format)
+        
+        df=df.set_index(sensorcolumn)
+        
+        ds=DataSet("Bladed",format=BladedOutFile)
+        files=df[filecolumn].unique().tolist()
+        sensors=df.index.unique().tolist()
+
+        ds.filelist=FileList([File(file) for file in files])
+        ds.sensorlist=SensorList([Sensor(sensor) for sensor in sensors])
+
+        for sensor in ds.sensorlist:
+            stats=[stat.name for stat in sensor.statistics]
+            if any(stat not in df.columns for stat in stats):
+                missing=[stat for stat in stats if stat not in df.columns]
+                raise ValueError(f"Statistics {missing} not found in DataFrame columns = {df.columns}.")
+            
+            sensor.data=df.loc[sensor.name,["filepath"]+stats].reset_index(drop=True).set_index("filepath")
+        
+        return ds
 
     def __repr__(self):
         return f"DataSet(name={self.name})"
