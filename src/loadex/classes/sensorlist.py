@@ -63,7 +63,7 @@ class Sensor(object):
             )
             session.add(db_attr)
             
-        session.commit()
+        session.flush()  # Flush to get db_sensor.id without committing
         return db_sensor
     
     def insert_standard_statistics(self,session,db_sensor,file_id):
@@ -74,8 +74,7 @@ class Sensor(object):
         # Bulk insert
         session.bulk_insert_mappings(datamodel.StandardStatistic, standard_data.to_dict('records'))
         #standard_data.to_sql('standard_statistics', session.get_bind(), if_exists='append', index=False)
-        
-        session.commit()
+
 
     def insert_custom_statistics(self,session,db_sensor,file_id):
         
@@ -101,8 +100,7 @@ class Sensor(object):
         # Bulk insert
         session.bulk_insert_mappings(datamodel.CustomStatistic, custom_stat_data.to_dict('records'))
         #custom_stats.to_sql('custom_statistics', session.get_bind(), if_exists='append', index=False)
-        
-        session.commit()
+
     
     def _extreme_load(self,filelist:"filelist.FileList")->pd.DataFrame:
         """Return a DataFrame with extreme loads for each group"""

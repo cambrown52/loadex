@@ -93,7 +93,7 @@ class File(object):
     def to_sql(self,session):
         
         session.query(datamodel.File).filter_by(filepath=str(self.filepath)).delete()
-        
+
         db_file = datamodel.File(filepath=str(self.filepath))
         session.add(db_file)
 
@@ -105,7 +105,7 @@ class File(object):
             )
             session.add(db_attr)
         
-        session.commit()
+        session.flush()  # Flush to get db_file.id without committing
         return db_file
 
     def __repr__(self):

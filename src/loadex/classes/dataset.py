@@ -148,6 +148,9 @@ class DataSet(object):
             
             # Store sensors
             self.sensorlist.to_sql(session,file_ids)
+            
+            # Commit once at the end
+            session.commit()
 
     @staticmethod
     def from_sql(database_file:str, name:str=None,format=BladedOutFile)->"DataSet":
