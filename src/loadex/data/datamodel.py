@@ -8,18 +8,18 @@ class File(Base):
     id = Column(Integer, primary_key=True)
     filepath = Column(String, unique=True, nullable=False)
     # Relationship to statistics
-    standard_statistics = relationship("StandardStatistic", back_populates="file")
-    attributes = relationship("FileAttribute", back_populates="file")
+    standard_statistics = relationship("StandardStatistic", back_populates="file", cascade="all, delete-orphan")
+    attributes = relationship("FileAttribute", back_populates="file", cascade="all, delete-orphan")
 
 class FileAttribute(Base):
     __tablename__ = "fileattributes"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
     key = Column(String, nullable=False)
     value = Column(Text, nullable=False)  # JSON-encoded string
 
     # Relationships
-    file = relationship("File", back_populates="attributes")
+    file = relationship("File", back_populates="attributes", passive_deletes=True)
 
 class Sensor(Base):
     __tablename__ = "sensors"
@@ -33,18 +33,18 @@ class Sensor(Base):
 class SensorAttribute(Base):
     __tablename__ = "sensorattributes"
     id = Column(Integer, primary_key=True)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False)
+    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False)
     key = Column(String, nullable=False)
     value = Column(Text, nullable=False)  # JSON-encoded string
 
     # Relationships
-    sensor = relationship("Sensor", back_populates="attributes")
+    sensor = relationship("Sensor", back_populates="attributes", passive_deletes=True)
 
 class StandardStatistic(Base):
     __tablename__ = "standardstatistics"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False,index=True)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
 
     mean = Column(Float)
     max = Column(Float)
@@ -52,8 +52,8 @@ class StandardStatistic(Base):
     std = Column(Float)
 
     # Relationships
-    file = relationship("File")
-    sensor = relationship("Sensor")
+    file = relationship("File", passive_deletes=True)
+    sensor = relationship("Sensor", passive_deletes=True)
 
 class StatisticType(Base):
     __tablename__ = "statistictypes"
@@ -65,14 +65,14 @@ class StatisticType(Base):
 class CustomStatistic(Base):
     __tablename__ = "customstatistics"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
-    sensor_id = Column(Integer, ForeignKey("sensors.id"), nullable=False,index=True)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
 
     statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False)
 
     value = Column(Float, nullable=False)    
 
     # Relationships
-    file = relationship("File")
-    sensor = relationship("Sensor")
-    statistic_type = relationship("StatisticType")
+    file = relationship("File", passive_deletes=True)
+    sensor = relationship("Sensor", passive_deletes=True)
+    statistic_type = relationship("StatisticType", passive_deletes=True)
