@@ -195,3 +195,4 @@ cython_debug/
 dev_testing/
 test/*.db
 *.loadex_log
+profile.prof
