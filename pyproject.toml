@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loadex"
-version = "0.1.14"
+version = "0.1.20"
 description = "Tools to facilitate wind turbine loads data exchange"
 authors = [
     { name="Cameron Brown", email="cab@goldwinddenmark.com" }
@@ -18,7 +18,9 @@ dependencies = [
     "sqlalchemy",
     "pyarrow",
     "rainflow",
-    "dnv_bladed_results"
+    "dnv_bladed_results",
+    "plotly",
+    "matplotlib"
 ]
 
 [tool.setuptools.packages.find]
