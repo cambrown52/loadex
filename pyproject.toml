@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loadex"
-version = "0.1.20"
+version = "0.1.22"
 description = "Tools to facilitate wind turbine loads data exchange"
 authors = [
     { name="Cameron Brown", email="cab@goldwinddenmark.com" }

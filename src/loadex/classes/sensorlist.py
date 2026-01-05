@@ -48,9 +48,9 @@ class Sensor(object):
         return db_sensor
 
     def add_or_get_database_sensor(self,session):
-        query=session.query(datamodel.Sensor).filter_by(name=self.name)
-        if query.count()>0:
-            return query.one()
+        db_sensor = session.query(datamodel.Sensor).filter_by(name=self.name).first()
+        if db_sensor:
+            return db_sensor
 
         db_sensor = datamodel.Sensor(name=self.name)
         session.add(db_sensor)
