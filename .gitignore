@@ -194,3 +194,4 @@ cython_debug/
 .cursorindexingignore
 dev_testing/
 test/*.db
+test/*.loadex_log
