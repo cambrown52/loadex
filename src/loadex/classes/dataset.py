@@ -175,7 +175,7 @@ class DataSet(object):
         
         df=df.set_index(sensorcolumn)
         
-        ds=DataSet("Bladed",format=BladedOutFile)
+        ds=DataSet(name=name,format=BladedOutFile)
         files=df[filecolumn].unique().tolist()
         sensors=df.index.unique().tolist()
 
