@@ -1,6 +1,8 @@
 from pathlib import Path
 import argparse
 import warnings
+from filelock import FileLock
+import gc
 
 from loadex.classes import DataSet
 from loadex.classes.filelist import FileList
@@ -19,6 +21,11 @@ def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutF
 
     log_file= log_file_path(file_path)
     log_file.unlink(missing_ok=True)
+
+    def update_log(progress:int, message:str):
+        with open(log_file,'w') as f:
+            f.write(f'{progress}%\t{message}\n')
+
     
     if not db_file:
         db_file="..//statistics.db"
@@ -28,17 +35,30 @@ def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutF
         raise ValueError(f"Unknown file format: {file_format}. Valid formats are: {list(format_class.keys())}")
     file_format=format_class[file_format]
 
-    ds=DataSet('loadex.cli.process_file: ' +str(file_path), file_format)
+    update_log(5, f'Starting processing of {file_path}')
+    ds=DataSet('loadex.cli.process_one_file: ' +str(file_path), file_format)
     
     file=file_format(str(file_path))
     ds.filelist= FileList([file])
     
+    update_log(10, f'Loading Sensor List')
     ds.set_sensors()
-    ds.generate_statistics(parallel=False)
-    ds.to_sql(str(db_file))
 
-    with open(log_file,'w') as f:
-        f.write(f'Processed {file_path}, output to {db_file}\n')
+    update_log(25, f'Generating Statistics')
+    ds.generate_statistics(parallel=False)
+    
+    update_log(50, f'Waiting for database lock')
+    with FileLock(db_file.with_suffix('.lock'), timeout=600):
+        update_log(75, f'Writing to database')
+        ds.to_sql(str(db_file))
+    
+    update_log(100, f'Finished processing file')
+    
+    # free memory
+    del ds 
+    gc.collect()
+
+    
 
 
 if __name__ == "__main__":
