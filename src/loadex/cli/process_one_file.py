@@ -3,6 +3,7 @@ import argparse
 import warnings
 from filelock import FileLock
 import gc
+import pandas as pd
 
 from loadex.classes import DataSet
 from loadex.classes.filelist import FileList
@@ -34,29 +35,47 @@ def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutF
     if file_format not in format_class:
         raise ValueError(f"Unknown file format: {file_format}. Valid formats are: {list(format_class.keys())}")
     file_format=format_class[file_format]
-
+    
     update_log(5, f'Starting processing of {file_path}')
     ds=DataSet('loadex.cli.process_one_file: ' +str(file_path), file_format)
     
     file=file_format(str(file_path))
     ds.filelist= FileList([file])
-    
-    update_log(10, f'Loading Sensor List')
-    ds.set_sensors()
+    try:
+        update_log(10, f'Loading Sensor List')
+        ds.set_sensors()
 
-    update_log(25, f'Generating Statistics')
-    ds.generate_statistics(parallel=False)
+        update_log(25, f'Generating Statistics')
+        ds.generate_statistics(parallel=False)
     
-    update_log(50, f'Waiting for database lock')
-    with FileLock(db_file.with_suffix('.lock'), timeout=600):
-        update_log(75, f'Writing to database')
-        ds.to_sql(str(db_file))
+        update_log(50, f'Waiting for database lock')
+        with FileLock(db_file.with_suffix('.lock'), timeout=600):
+            update_log(75, f'Writing to database')
+            ds.to_sql(str(db_file))
     
-    update_log(100, f'Finished processing file')
+        update_log(100, f'Finished processing file')
     
-    # free memory
-    del ds 
-    gc.collect()
+    finally:
+        # Cleanup happens whether success or failure
+        
+        # Clear sensor data
+        for sensor in ds.sensorlist:
+            sensor.data = pd.DataFrame()
+            
+        # Clear file connections
+        for f in ds.filelist:
+            f.clear_connections()
+        
+        # Clear lists
+        ds.filelist.clear()
+        ds.sensorlist.clear()
+        
+        # Delete references
+        del ds
+        del file
+        
+        # Force garbage collection
+        gc.collect()
 
     
 
