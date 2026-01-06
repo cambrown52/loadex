@@ -204,7 +204,6 @@ class FileList(list):
         
         print("Loading file list from database...")
 
-        
         # load all files from database
         db_files = session.query(datamodel.File).all()
         

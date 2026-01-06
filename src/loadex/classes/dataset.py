@@ -1,4 +1,6 @@
 import multiprocessing
+import shutil
+import tempfile
 from pathlib import Path
 
 import plotly.graph_objects as go
@@ -153,11 +155,19 @@ class DataSet(object):
             session.commit()
 
     @staticmethod
-    def from_sql(database_file:str, name:str=None,format=BladedOutFile)->"DataSet":
+    def from_sql(database_file:str, name:str=None,format=BladedOutFile,copy_to_temp=False)->"DataSet":
         """Read the dataset from a SQLite database"""
         if not name:
             name=Path(database_file).stem
         
+        if copy_to_temp:
+            temp_dir=tempfile.mkdtemp()
+            temp_db_path=Path(temp_dir)/Path(database_file).name
+            print(f"Copying database at {database_file} to temporary location {temp_db_path} for faster reading.")
+            shutil.copy2(database_file,temp_db_path)
+            database_file=str(temp_db_path)
+
+
         print(f"Loading dataset '{name}' from database: {database_file}")
         ds=DataSet(name=name, format=format)
         Session=get_sqlite_session(database_file,create_if_not_exists=False)  # Ensure DB and tables are created
@@ -169,6 +179,10 @@ class DataSet(object):
             ds.sensorlist=SensorList.from_sql(session)
         
         print(f"Finished Loading dataset '{name}'!")
+        if copy_to_temp:
+            shutil.rmtree(temp_dir)
+            print(f"Removed temporary database at {temp_db_path}.")
+            
         return ds
     
     @staticmethod
