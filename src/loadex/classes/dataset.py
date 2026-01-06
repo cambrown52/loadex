@@ -161,7 +161,7 @@ class DataSet(object):
             name=Path(database_file).stem
         
         if copy_to_temp:
-            temp_dir=tempfile.mkdtemp()
+            temp_dir=tempfile.mkdtemp(prefix="loadex_db_")
             temp_db_path=Path(temp_dir)/Path(database_file).name
             print(f"Copying database at {database_file} to temporary location {temp_db_path} for faster reading.")
             shutil.copy2(database_file,temp_db_path)
@@ -177,12 +177,18 @@ class DataSet(object):
             
             # Read sensors
             ds.sensorlist=SensorList.from_sql(session)
+            
+            # Get engine reference before closing session
+            engine = session.get_bind()
+        
+        # Dispose of all connections in the pool to release file locks
+        engine.dispose()
         
         print(f"Finished Loading dataset '{name}'!")
         if copy_to_temp:
             shutil.rmtree(temp_dir)
             print(f"Removed temporary database at {temp_db_path}.")
-            
+
         return ds
     
     @staticmethod

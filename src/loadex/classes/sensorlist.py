@@ -242,23 +242,39 @@ class SensorList(list):
 
         # Insert statistics into sensors
         print("Adding statistics into sensor objects...")
+        
+        # Group dataframes by sensor once (much faster than filtering in loop)
+        grouped_standard = df_standard_stats.groupby('sensor_name')
+        
+        # Pivot custom stats once if they exist
+        if not df_custom_stats.empty:
+            df_custom_stats_pivoted = df_custom_stats.pivot_table(
+                index=['filepath', 'sensor_name'], 
+                columns='stat_type', 
+                values='value'
+            )
+            grouped_custom = df_custom_stats_pivoted.groupby('sensor_name')
+        else:
+            grouped_custom = None
+        
         for sensor in self:
+            # Get pre-grouped data (O(1) lookup vs O(n) filter)
+            df_sensor_standard_stats = grouped_standard.get_group(sensor.name) if sensor.name in grouped_standard.groups else pd.DataFrame()
             
-            # filter dataframes for this sensor
-            df_sensor_standard_stats = df_standard_stats[df_standard_stats['sensor_name'] == sensor.name].drop(columns=['sensor_name'])
-            df_sensor_custom_stats = df_custom_stats[df_custom_stats['sensor_name'] == sensor.name].drop(columns=['sensor_name'])
-
-            # merge dataframes if custom stats exist
-            if not df_sensor_custom_stats.empty:
-                # add custom statistic types to object
-                for stat_type_name in df_sensor_custom_stats["stat_type"].unique():
+            if grouped_custom is not None and sensor.name in grouped_custom.groups:
+                df_sensor_custom_stats = grouped_custom.get_group(sensor.name)
+                
+                # Drop columns that are all NULL (stat types not used by this sensor)
+                df_sensor_custom_stats = df_sensor_custom_stats.dropna(axis=1, how='all')
+                
+                # Add custom statistic types to object
+                for stat_type_name in df_sensor_custom_stats.columns:
                     sensor.statistics.append(statistic_types[stat_type_name].copy())
-
-                df_sensor_custom_stats = df_sensor_custom_stats.pivot(columns='stat_type', values='value')
-
-                df_sensor_stats=pd.concat([df_sensor_standard_stats, df_sensor_custom_stats], axis=1)
+                
+                # Merge standard and custom stats
+                df_sensor_stats = pd.concat([df_sensor_standard_stats.drop(columns=['sensor_name']), df_sensor_custom_stats], axis=1)
             else:
-                df_sensor_stats = df_sensor_standard_stats
+                df_sensor_stats = df_sensor_standard_stats.drop(columns=['sensor_name'])
             
             # add data to sensor
             #print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
