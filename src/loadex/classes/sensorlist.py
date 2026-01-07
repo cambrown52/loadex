@@ -153,7 +153,7 @@ class SensorList(list):
                 return sensor
         raise ValueError(f"Sensor '{name}' not found in sensorlist.")
     
-    def get_sensors(self, pattern: str=None,has_statistic:str=None) -> "SensorList":
+    def get_sensors(self, pattern: str=None,has_statistic:str=None,metadata:dict=None) -> "SensorList":
         """Return a list of sensors by pattern"""
         sensors=self
         if pattern:
@@ -163,6 +163,13 @@ class SensorList(list):
         
         if has_statistic:
             sensors = [s for s in sensors if s.has_statistic(has_statistic)]
+
+        if metadata:
+            for key, value in metadata.items():
+                if callable(value):
+                    sensors = [s for s in sensors if key in s.metadata and value(s.metadata[key])]
+                else:
+                    sensors = [s for s in sensors if key in s.metadata and s.metadata[key] == value]
 
         return SensorList(sensors)
 
@@ -252,7 +259,7 @@ class SensorList(list):
                 index=['filepath', 'sensor_name'], 
                 columns='stat_type', 
                 values='value'
-            )
+            ).reset_index().set_index('filepath')
             grouped_custom = df_custom_stats_pivoted.groupby('sensor_name')
         else:
             grouped_custom = None
@@ -262,7 +269,7 @@ class SensorList(list):
             df_sensor_standard_stats = grouped_standard.get_group(sensor.name) if sensor.name in grouped_standard.groups else pd.DataFrame()
             
             if grouped_custom is not None and sensor.name in grouped_custom.groups:
-                df_sensor_custom_stats = grouped_custom.get_group(sensor.name)
+                df_sensor_custom_stats = grouped_custom.get_group(sensor.name).drop(columns=["sensor_name"])
                 
                 # Drop columns that are all NULL (stat types not used by this sensor)
                 df_sensor_custom_stats = df_sensor_custom_stats.dropna(axis=1, how='all')
@@ -290,9 +297,20 @@ class SensorList(list):
         # load sensor list from database
         print("Loading sensor list from database...")
         db_sensors = session.query(datamodel.Sensor).all()
+        
+        # load sensor attributes from database
+        sql_query=session.query(datamodel.SensorAttribute)
+        df_sensor_attributes=pd.read_sql(sql_query.statement, session.get_bind(), index_col='sensor_id')
+        df_sensor_attributes["value_parsed"]=df_sensor_attributes["value"].apply(json.loads)
+        #grouped_attributes=df_sensor_attributes.groupby('sensor_id')
+        df_sensor_metadata=df_sensor_attributes.groupby('sensor_id').apply(lambda x: {row.key: row.value_parsed for index, row in x.iterrows()})
     
-        # convert to Sensor objects in SensorList
-        sensorlist=[Sensor(db_sensor.name) for db_sensor in db_sensors]
+        # convert to Sensor objects with metadata in SensorList
+        sensorlist=[]
+        for db_sensor in db_sensors:
+            #metadata={key: value_parsed for key, value_parsed in grouped_attributes.get_group(db_sensor.id)[["key", "value_parsed"]].itertuples(index=False)}
+            sensorlist.append(Sensor(db_sensor.name,metadata=df_sensor_metadata.get(db_sensor.id,{})))
+        
         sensorlist=SensorList(sensorlist)
 
         # load statistics
