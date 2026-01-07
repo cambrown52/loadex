@@ -12,7 +12,7 @@ def log_file_path(file_path:Path|str)->Path:
         file_path=Path(file_path)
     return file_path.with_suffix('.loadex_log')
 
-def process_files(directory: str,db_file:str=None,file_format:str="BladedOutFile"):
+def process_files(directory: str,db_file:str=None,file_format:str="BladedOutFile",fatigue_sensor_spec:list[dict]=None):
     directory=Path(directory)
     if not directory.is_dir():
         warnings.warn(f"Directory not found: {directory}", UserWarning)
@@ -32,6 +32,14 @@ def process_files(directory: str,db_file:str=None,file_format:str="BladedOutFile
     
     ds.find_files([str(directory)])
     ds.set_sensors()
+
+    # Add default fatigue statistics if defined by file format
+    if not fatigue_sensor_spec:
+        fatigue_sensor_spec = file_format.default_fatigue_sensor_spec()
+
+    for spec in fatigue_sensor_spec:
+        ds.sensorlist.get_sensors(**spec["filter"]).add_rainflow_statistics(m=spec["wohler_exponent"])
+
     ds.generate_statistics(parallel=True)
     ds.to_sql(str(db_file))
 

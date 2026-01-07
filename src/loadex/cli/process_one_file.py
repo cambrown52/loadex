@@ -15,7 +15,7 @@ def log_file_path(file_path:Path|str)->Path:
         file_path=Path(file_path)
     return file_path.with_suffix('.loadex_log')
 
-def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutFile"):
+def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutFile",fatigue_sensor_spec:list[dict]=None):
     file_path=Path(file_path)
     if not file_path.exists():
         warnings.warn(f"File not found: {file_path}", UserWarning)
@@ -44,6 +44,14 @@ def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutF
     try:
         update_log(10, f'Loading Sensor List')
         ds.set_sensors()
+
+        # Add default fatigue statistics if defined by file format
+        if not fatigue_sensor_spec:
+            fatigue_sensor_spec = file_format.default_fatigue_sensor_spec()
+
+        for spec in fatigue_sensor_spec:
+            ds.sensorlist.get_sensors(**spec["filter"]).add_rainflow_statistics(m=spec["wohler_exponent"])
+
 
         update_log(25, f'Generating Statistics')
         ds.generate_statistics(parallel=False)

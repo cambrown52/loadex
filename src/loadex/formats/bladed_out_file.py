@@ -15,6 +15,14 @@ class BladedOutFile(File):
     def defaultExtensions():
         return ["$TE","$PJ"]
     
+    @staticmethod
+    def defaultFatigueSensorSpec():
+        return [
+            {"filter": {"metadata":{"group_name": lambda x: "Hub loads:" in x}},"wohler_exponent":[3,4,5,9,10] },
+            {"filter": {"metadata":{"group_name": "Yaw bearing loads GL coordinates"}},"wohler_exponent":[3,4,5] },
+            {"filter": {"metadata":{"group_name": "Tower member loads - local coordinates"}},"wohler_exponent":[3,4,5] },
+        ]
+
     # lazy load of data
     @property
     def run(self):

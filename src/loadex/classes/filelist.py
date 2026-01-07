@@ -26,6 +26,10 @@ class File(object):
     def sensor_names(self) -> List[str]:
         pass
 
+    @staticmethod
+    def default_fatigue_sensor_spec():
+        return []
+    
     def get_sensor_metadata(self,sensor_name:str)->Dict:
         """Return a dictionary with metadata for all sensors in the file"""
         return {}
@@ -57,8 +61,10 @@ class File(object):
         try:
             print(f"loading file: {self.filepath}")
             self.set_metadata_from_file()
+            t=self.get_time()
             for sensor in sensorlist:
-                row={stat.name: stat.aggregation_function(self.get_data(sensor.name),self.get_time()) for stat in sensor.statistics}
+                x=self.get_data(sensor.name)
+                row={stat.name: stat.aggregation_function(x,t) for stat in sensor.statistics}
                 file_stats[sensor.name] = row
         except Exception as e:
             print(f"Error generating statistics for file {self.filepath}: {e}")
