@@ -10,13 +10,17 @@ class BladedOutFile(File):
         super().__init__(filepath,metadata)
         self._run = None
         self._sensors = None
+    
+    def __del__(self):
+        self.clear_connections()
+        bd.ResultsApi.clear_runs()
 
     @staticmethod
     def defaultExtensions():
         return ["$TE","$PJ"]
     
     @staticmethod
-    def defaultFatigueSensorSpec():
+    def default_fatigue_sensor_spec():
         return [
             {"filter": {"metadata":{"group_name": lambda x: "Hub loads:" in x}},"wohler_exponent":[3,4,5,9,10] },
             {"filter": {"metadata":{"group_name": "Yaw bearing loads GL coordinates"}},"wohler_exponent":[3,4,5] },
