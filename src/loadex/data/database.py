@@ -20,6 +20,7 @@ def get_sqlite_session(db_path,create_if_not_exists=True):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute(f"PRAGMA busy_timeout={timeout*1000}")  # timeout in milliseconds
+        cursor.execute("PRAGMA foreign_keys=ON")  # Enable foreign key enforcement
         cursor.close()
 
     # Create tables if database is new

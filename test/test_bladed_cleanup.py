@@ -35,11 +35,9 @@ def test_bladed_unload():
 def test_load_delete_full_file():
 
     f=BladedOutFile(str(data_directory / "idling.$PJ"))
-    with open("test_output.txt","w") as out_file:
-        out_file.write(f"File has {len(f.sensors)} sensors\n")
     for s in f.sensors:
-        with open("test_output.txt","a") as out_file:
-            out_file.write(f"loading sensor: {s.name}\n")
+        # with open("test_output.txt","a") as out_file:
+        #     out_file.write(f"loading sensor: {s.name}\n")
         s.get_data()
     
     del f

@@ -5,6 +5,7 @@ Base = declarative_base()
 
 class File(Base):
     __tablename__ = "files"
+    __table_args__ = { 'sqlite_autoincrement': True }
     id = Column(Integer, primary_key=True)
     filepath = Column(String, unique=True, nullable=False)
     # Relationship to statistics
