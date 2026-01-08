@@ -102,10 +102,12 @@ class Sensor(object):
         #custom_stats.to_sql('custom_statistics', session.get_bind(), if_exists='append', index=False)
 
     
-    def _extreme_load(self,filelist:"filelist.FileList")->pd.DataFrame:
+    def _extreme_load(self,filelist:"filelist.FileList",characteristic=False)->pd.DataFrame:
         """Return a DataFrame with extreme loads for each group"""
         
         df_file=filelist.to_dataframe().loc[:,["dlc","group","partial_safety_factor"]]
+        if characteristic:
+            df_file["partial_safety_factor"]=1.0
 
         df=pd.concat([df_file,self.data],axis=1)
         df["absmax"]=df[["min","max"]].abs().max(axis=1)

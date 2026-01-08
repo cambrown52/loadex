@@ -41,6 +41,8 @@ class DataSet(object):
 
         if type not in ["Fatigue", "Ultimate"]:
             raise ValueError(f"Invalid type '{type}'. Must be 'Fatigue' or 'Ultimate'.")
+        if name in [dlc.name for dlc in self.dlcs]:
+            raise ValueError(f"Design load case with name '{name}' already exists.")
         
         dlc = DesignLoadCase(self, name)
         dlc.type = type
@@ -257,7 +259,7 @@ class DataSet(object):
         return pd.concat(results)
 
 
-    def extreme_load(self, sensor_names: list[str]) -> pd.DataFrame:
+    def extreme_load(self, sensor_names: list[str],characteristic=False) -> pd.DataFrame:
         """Calculate extreme load for given sensors"""
         if self.filelist.get_groups().isna().all():
             raise ValueError("FileList groups are not set. Please set groups first using 'set_groups' method.")
@@ -265,7 +267,7 @@ class DataSet(object):
         # build dataframe with all sensor data
         dfs= []
         for sensor_name in sensor_names:
-            extremes_sensor = self.sensorlist.get_sensor(sensor_name)._extreme_load(filelist=self.filelist)    
+            extremes_sensor = self.sensorlist.get_sensor(sensor_name)._extreme_load(filelist=self.filelist,characteristic=characteristic)    
             dfs.append(extremes_sensor)
         df=pd.concat(dfs,axis=0)
         return df
