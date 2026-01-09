@@ -28,11 +28,14 @@ class DataSet(object):
         self.dlcs = DesignLoadCaseList([])
         self.timecolumn = 'time'
 
-    def find_files(self, directories: list[str], pattern: str=None):
+    def find_files(self, directories: str |list[str], pattern: str=None):
         """Find files in a directory matching a pattern and add them to the filelist"""
         if pattern is None:
             pattern = '*' + self.format.defaultExtensions()[0]
         
+        if isinstance(directories, str):
+            directories = [directories]
+
         filelist = [self.format(f) for dir in directories for f in Path(dir).rglob(pattern) ]
         self.filelist = FileList(filelist)
     
