@@ -22,7 +22,10 @@ class ParquetFile(File):
         return self.data
 
     def get_time(self) -> pd.Series:
-        return self.data["time"]
+        for col in self.data.columns:
+            if col.lower().startswith("time"):
+                return self.data[col]
+        raise ValueError("No time column found")
     
     def get_data(self,sensor_name) -> pd.Series:
         return self.data[sensor_name]

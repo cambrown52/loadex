@@ -254,7 +254,7 @@ class FileList(list):
         """Add metadata from a DataFrame to the files in the filelist"""
         for file in self:
             if str(file.filepath) in df.index:
-                file.metadata.update(df.loc[str(file.filepath)].to_dict())
+                file.metadata=df.loc[str(file.filepath)].to_dict()
 
     def set_metadata_from_files(self):
         """Set metadata for all files in the filelist from the files themselves"""
