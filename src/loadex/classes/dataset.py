@@ -55,6 +55,57 @@ class DataSet(object):
 
         return dlc
 
+    def vertical_join(self, other: "DataSet") -> "DataSet":
+        """Concatenate two datasets vertically (adding files)"""
+        
+        # merge file lists
+        common_files=set(self.filelist.filepaths)&set(other.filelist.filepaths)
+        if common_files:
+            raise ValueError(f"Cannot concatenate datasets. Common files found: {common_files}")
+        self.filelist+=other.filelist
+
+        # merge sensor lists
+        this_sensors=set(self.sensorlist.names)
+        other_sensors=set(other.sensorlist.names)
+        common_sensors=this_sensors & other_sensors
+        missing_sensors=other_sensors - this_sensors
+        if common_sensors:
+            for sensor_name in common_sensors:
+                sensor_self=self.sensorlist.get_sensor(sensor_name)
+                sensor_other=other.sensorlist.get_sensor(sensor_name)
+                sensor_self.data=pd.concat([sensor_self.data,sensor_other.data],axis=0)
+
+        if missing_sensors:
+            for missing in missing_sensors:
+                self.sensorlist.append(other.sensorlist.get_sensor(missing))
+
+        # merge dlcs
+        this_dlcs=set(self.dlcs.names)
+        other_dlcs=set(other.dlcs.names)
+        common_dlcs= this_dlcs & other_dlcs
+        missing_dlcs=other_dlcs - this_dlcs
+        if common_dlcs:
+            for dlc in common_dlcs:
+                # add new files to existing DLC
+                self.filelist.get_files(
+                    in_list=other.dlcs.get_dlc(dlc).filelist.filepaths,
+                    ).set_dlc(self.dlcs.get_dlc(dlc))
+        
+        if missing_dlcs:
+            for dlc in missing_dlcs:
+                #make DLC with same settings
+                other_dlc=other.dlcs.get_dlc(dlc)
+                this_dlc=self.add_dlc(name=other_dlc.name,
+                             type=other_dlc.type,
+                             psf=other_dlc.partial_safety_factor)
+                
+                # add files to new dlc
+                self.filelist.get_files(
+                    in_list=other_dlc.filelist.filepaths,
+                ).set_dlc(this_dlc)
+                    
+
+    
     @property
     def n_files(self):
         """Return the number of files in the filelist"""
@@ -67,7 +118,7 @@ class DataSet(object):
 
         df_list = []
         # add filelist metadata
-        file_df = self.filelist.metadata
+        file_df = self.filelist.to_dataframe()
         file_df.columns = pd.MultiIndex.from_product([["filelist"], file_df.columns])
         df_list.append(file_df)
 
@@ -262,15 +313,18 @@ class DataSet(object):
         return pd.concat(results)
 
 
-    def extreme_load(self, sensor_names: list[str],characteristic=False) -> pd.DataFrame:
+    def extreme_load(self, sensor_names: list[str],characteristic=False,filelist=None) -> pd.DataFrame:
         """Calculate extreme load for given sensors"""
-        if self.filelist.get_groups().isna().all():
+        if filelist is None:
+            filelit=self.filelist
+
+        if filelist.get_groups().isna().all():
             raise ValueError("FileList groups are not set. Please set groups first using 'set_groups' method.")
-        
+
         # build dataframe with all sensor data
         dfs= []
         for sensor_name in sensor_names:
-            extremes_sensor = self.sensorlist.get_sensor(sensor_name)._extreme_load(filelist=self.filelist,characteristic=characteristic)    
+            extremes_sensor = self.sensorlist.get_sensor(sensor_name)._extreme_load(filelist=filelist,characteristic=characteristic)    
             dfs.append(extremes_sensor)
         df=pd.concat(dfs,axis=0)
         return df

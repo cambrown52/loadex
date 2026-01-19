@@ -41,6 +41,10 @@ class DesignLoadCase(object):
 class DesignLoadCaseList(list):
     """List of DesignLoadCase objects"""
 
+    @property
+    def names(self):
+        return [dlc.name for dlc in self]
+
     def get_dlc(self, name: str) -> "DesignLoadCase":
         """Return a DLC by name"""
         for dlc in self:
