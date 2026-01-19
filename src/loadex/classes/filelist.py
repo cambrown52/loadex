@@ -120,6 +120,11 @@ class File(object):
 class FileList(list):
     """A thin list subclass for sensors with convenience methods."""
 
+    @property
+    def filepaths(self)->list[str]:
+        """Return a list of sensor names"""
+        return [str(file.filepath) for file in self]
+    
     def get_file(self,name: str)->File:
         """Return a file by name. If multiple files match, return the first one."""  
         for file in self:
@@ -127,7 +132,7 @@ class FileList(list):
                 return file
         raise ValueError(f"File '{name}' not found in filelist.")
 
-    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None )->"FileList":
+    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None, in_list: list[str] = None )->"FileList":
         """Return a list of files by pattern"""
         file=self
         if pattern:
@@ -137,6 +142,9 @@ class FileList(list):
         
         if dlc:
             file=[f for f in file if f.dlc==dlc]
+        
+        if in_list:
+            file=[f for f in file if str(f.filepath) in in_list]
 
         return FileList(file)
     
