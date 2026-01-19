@@ -28,9 +28,9 @@ def process_files(directory: str,db_file:str=None,file_format:str="BladedOutFile
         raise ValueError(f"Unknown file format: {file_format}. Valid formats are: {list(format_class.keys())}")
     file_format=format_class[file_format]
 
-    ds=DataSet('loadex.cli.process_files: ' +str(directory), file_format)
+    ds=DataSet('loadex.cli.process_files: ' +str(directory))
     
-    ds.find_files([str(directory)])
+    ds.find_files([str(directory)], format=file_format)
     ds.set_sensors()
 
     # Add default fatigue statistics if defined by file format

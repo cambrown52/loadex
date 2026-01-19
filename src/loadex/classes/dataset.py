@@ -20,23 +20,22 @@ from loadex.data import datamodel
 class DataSet(object):
     """Contains a loads dataset"""
     
-    def __init__(self, name: str,format=BladedOutFile):
+    def __init__(self, name: str):
         self.name = name
-        self.format=format
         self.filelist = []
         self.sensorlist = []
         self.dlcs = DesignLoadCaseList([])
         self.timecolumn = 'time'
 
-    def find_files(self, directories: str |list[str], pattern: str=None):
+    def find_files(self, directories: str |list[str],format, pattern: str=None):
         """Find files in a directory matching a pattern and add them to the filelist"""
         if pattern is None:
-            pattern = '*' + self.format.defaultExtensions()[0]
+            pattern = '*' + format.defaultExtensions()[0]
         
         if isinstance(directories, str):
             directories = [directories]
 
-        filelist = [self.format(f) for dir in directories for f in Path(dir).rglob(pattern) ]
+        filelist = [format(f) for dir in directories for f in Path(dir).rglob(pattern) ]
         self.filelist = FileList(filelist)
     
     def add_dlc(self, name: str, type: str, psf: float = 1.0) -> None:
@@ -211,7 +210,7 @@ class DataSet(object):
             session.commit()
 
     @staticmethod
-    def from_sql(database_file:str, name:str=None,format=BladedOutFile,copy_to_temp=False)->"DataSet":
+    def from_sql(database_file:str, name:str=None,copy_to_temp=False)->"DataSet":
         """Read the dataset from a SQLite database"""
         if not name:
             name=Path(database_file).stem
@@ -225,11 +224,11 @@ class DataSet(object):
 
 
         print(f"Loading dataset '{name}' from database: {database_file}")
-        ds=DataSet(name=name, format=format)
+        ds=DataSet(name=name)
         Session=get_sqlite_session(database_file,create_if_not_exists=False)  # Ensure DB and tables are created
         with Session() as session:
             # Read files
-            ds.filelist=FileList.from_sql(session, ds.format)
+            ds.filelist=FileList.from_sql(session)
             
             # Read sensors
             ds.sensorlist=SensorList.from_sql(session)
@@ -248,17 +247,17 @@ class DataSet(object):
         return ds
     
     @staticmethod
-    def from_dataframe(df:pd.DataFrame, name:str, format=BladedOutFile,filecolumn="filepath",sensorcolumn="sensor")->"DataSet":
+    def from_dataframe(df:pd.DataFrame, name:str, format=File,filecolumn="filepath",sensorcolumn="sensor")->"DataSet":
         """Create a DataSet from a DataFrame"""
-        ds=DataSet(name=name, format=format)
+        ds=DataSet(name=name)
         
         df=df.set_index(sensorcolumn)
         
-        ds=DataSet(name=name,format=BladedOutFile)
+        ds=DataSet(name=name)
         files=df[filecolumn].unique().tolist()
         sensors=df.index.unique().tolist()
 
-        ds.filelist=FileList([File(file) for file in files])
+        ds.filelist=FileList([format(file) for file in files])
         ds.sensorlist=SensorList([Sensor(sensor) for sensor in sensors])
 
         for sensor in ds.sensorlist:

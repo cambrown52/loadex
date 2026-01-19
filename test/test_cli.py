@@ -4,7 +4,6 @@ from pathlib import Path
 import numpy as np
 
 import loadex
-from loadex.formats.bladed_out_file import BladedOutFile
 from loadex.cli.process_one_file import process_one_file
 from loadex.cli.process_files import process_files
 
@@ -24,7 +23,7 @@ def test_process_one_file():
     assert db_file.exists()
 
 
-    ds_reload=loadex.DataSet.from_sql(str(db_file),name="test_reload",format=BladedOutFile)
+    ds_reload=loadex.DataSet.from_sql(str(db_file),name="test_reload")
 
     # compare dataset
     assert ds_reload.n_files==2
@@ -41,7 +40,7 @@ def test_process_files():
     assert db_file.exists()
 
 
-    ds_reload=loadex.DataSet.from_sql(str(db_file),name="test_reload",format=BladedOutFile)
+    ds_reload=loadex.DataSet.from_sql(str(db_file),name="test_reload")
 
     # compare dataset
     assert ds_reload.n_files==2

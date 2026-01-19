@@ -12,10 +12,10 @@ data_directory = current_directory / "data" / "Bladed"
 def test_load_dataset():
 
     # create dataset (same as notebook)
-    ds = DataSet("test", BladedOutFile)
+    ds = DataSet("test")
 
     # ds.find_files accepts a directory or list of directories in the notebook;
-    ds.find_files([str(data_directory)])
+    ds.find_files([str(data_directory)], format=BladedOutFile)
 
     # show filelist (if attribute exists)
     #print("filelist:", getattr(ds, "filelist", None))
@@ -46,7 +46,7 @@ def test_load_dataset():
     assert sqlite_database.exists()
 
 
-    ds_reload=DataSet.from_sql(str(sqlite_database),name="test_reload",format=BladedOutFile)
+    ds_reload=DataSet.from_sql(str(sqlite_database),name="test_reload")
     # compare dataset
     assert ds_reload.n_files==ds.n_files
     assert len(ds_reload.filelist)==len(ds.filelist)
@@ -66,22 +66,22 @@ def test_load_dataset():
 def test_merge_dataset():
 
     # create dataset (same as notebook)
-    ds = DataSet("test", BladedOutFile)
-    ds.find_files([str(data_directory)])
+    ds = DataSet("test")
+    ds.find_files([str(data_directory)],format=BladedOutFile)
     ds.set_sensors()
     ds.generate_statistics(parallel=False)
     df=ds.to_dataframe()
 
-    ds_join = DataSet("testA", BladedOutFile)
-    ds_join.find_files([str(data_directory)],pattern="parked.$TE")
+    ds_join = DataSet("testA")
+    ds_join.find_files([str(data_directory)],pattern="parked.$TE", format=BladedOutFile)
     ds_join.set_sensors()
     ds_join.generate_statistics(parallel=False)
     dlc=ds_join.add_dlc("parked", psf=1.35, type="Fatigue")
     ds_join.filelist.set_dlc(dlc)
 
     
-    ds_append = DataSet("testB", BladedOutFile)
-    ds_append.find_files([str(data_directory)],pattern="idling.$PJ")
+    ds_append = DataSet("testB")
+    ds_append.find_files([str(data_directory)],pattern="idling.$PJ",format=BladedOutFile)
     ds_append.set_sensors()
     ds_append.generate_statistics(parallel=False)
     dlc_append=ds_append.add_dlc("idling", psf=1.35, type="Ultimate")

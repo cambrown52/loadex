@@ -37,7 +37,7 @@ def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutF
     file_format=format_class[file_format]
     
     update_log(5, f'Starting processing of {file_path}')
-    ds=DataSet('loadex.cli.process_one_file: ' +str(file_path), file_format)
+    ds=DataSet('loadex.cli.process_one_file: ' +str(file_path))
     
     file=file_format(str(file_path))
     ds.filelist= FileList([file])

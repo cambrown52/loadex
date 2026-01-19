@@ -8,6 +8,7 @@ class File(Base):
     __table_args__ = { 'sqlite_autoincrement': True }
     id = Column(Integer, primary_key=True)
     filepath = Column(String, unique=True, nullable=False)
+    type = Column(String, nullable=True)
     # Relationship to statistics
     standard_statistics = relationship("StandardStatistic", back_populates="file", cascade="all, delete-orphan")
     attributes = relationship("FileAttribute", back_populates="file", cascade="all, delete-orphan")

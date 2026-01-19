@@ -97,10 +97,12 @@ class File(object):
 
 
     def to_sql(self,session):
+        import loadex.formats
         
         session.query(datamodel.File).filter_by(filepath=str(self.filepath)).delete()
 
-        db_file = datamodel.File(filepath=str(self.filepath))
+        db_file = datamodel.File(filepath=str(self.filepath),
+                                 type=loadex.formats.format_name(self))
         session.add(db_file)
 
         for key,value in self.metadata.items():
@@ -125,7 +127,7 @@ class FileList(list):
         """Return a list of sensor names"""
         return [str(file.filepath) for file in self]
     
-    def get_file(self,name: str)->File:
+    def get_file(self,name: str)->"File":
         """Return a file by name. If multiple files match, return the first one."""  
         for file in self:
             if file.filepath.full_match(name):
@@ -213,8 +215,9 @@ class FileList(list):
         return pd.Series(file_id, name="file_id")
     
     @staticmethod
-    def from_sql(session, format_class) -> "FileList":
+    def from_sql(session) -> "FileList":
         """Load filelist from database"""
+        import loadex.formats
         
         print("Loading file list from database...")
 
@@ -234,6 +237,12 @@ class FileList(list):
                 metadata = {}
 
             # create file object
+            if db_file.type:
+                format_class = loadex.formats.format_class[db_file.type]
+            else:
+                print(f"Warning: File type missing for {db_file.filepath}, defaulting to File class.")
+                format_class = File
+
             file = format_class(db_file.filepath, metadata)
             files.append(file)
         
