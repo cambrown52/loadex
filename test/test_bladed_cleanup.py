@@ -30,8 +30,12 @@ def test_bladed_unload():
         variable=run.get_variable_2d_from_specific_group(name,"Tower member loads - local coordinates")
         independent_variable_values=variable.get_independent_variable(bd.INDEPENDENT_VARIABLE_ID_SECONDARY).get_values_as_string()
         for value in independent_variable_values:
+            # recreate variable object. Unload_variable invalidates previous varible object
+            variable=run.get_variable_2d_from_specific_group(name,"Tower member loads - local coordinates")
             variable.get_data_at_value(value)
             run.unload_variable_from_specific_group(variable.name,variable.parent_group_name)
+            # delete invalidated varible object
+            del variable
     
     
 
@@ -40,14 +44,13 @@ def test_bladed_unload():
 def test_load_delete_full_file():
 
     f=BladedOutFile(str(data_directory / "idling.$PJ"))
-    with open("test_output.txt","w") as out_file:
-        out_file.write(f"Loaded file: {f.filepath}\n")
+    # with open("test_output.txt","w") as out_file:
+    #     out_file.write(f"Loaded file: {f.filepath}\n")
     for s in f.sensors:
-        with open("test_output.txt","a") as out_file:
-            out_file.write(f"run.get_variable('{s.variable_name}','{s.group_name}')\n")
-            out_file.write(f"run.unload_variable_from_specific_group('{s.variable_name}','{s.group_name}')\n")
+        # with open("test_output.txt","a") as out_file:
+        #     out_file.write(f"run.get_variable('{s.variable_name}','{s.group_name}')\n")
+        #     out_file.write(f"run.unload_variable_from_specific_group('{s.variable_name}','{s.group_name}')\n")
         s.get_data()
-        #f.run.unload_variable_from_specific_group(s.variable_name,s.group_name)
     
     del f
 
