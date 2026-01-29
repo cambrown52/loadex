@@ -286,7 +286,7 @@ class FileList(list):
         """Return data for plotting"""
         defaults = {
             'statistic': "id",
-            'scale': 1.0,
+            'scale': None,
             'fillna': False,
             'marker': None,
         }
@@ -298,7 +298,11 @@ class FileList(list):
         if "label" not in spec:
             spec["label"]=spec["name"]+" "+spec["statistic"]
 
-        x=self.metadata[spec["statistic"]]*spec["scale"]
+
+        x=self.to_dataframe()[spec["statistic"]]
+        if spec["scale"] is not None:
+            x=x*spec["scale"]
+            
         if spec["fillna"]:
             x=x.fillna(spec["fillna"])
         spec["data"]=x

@@ -315,7 +315,7 @@ class DataSet(object):
     def extreme_load(self, sensor_names: list[str],characteristic=False,filelist=None) -> pd.DataFrame:
         """Calculate extreme load for given sensors"""
         if filelist is None:
-            filelit=self.filelist
+            filelist=self.filelist
 
         if filelist.get_groups().isna().all():
             raise ValueError("FileList groups are not set. Please set groups first using 'set_groups' method.")
