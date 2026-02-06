@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loadex"
-version = "0.1.28"
+version = "0.1.29"
 description = "Tools to facilitate wind turbine loads data exchange"
 authors = [
     { name="Cameron Brown", email="cab@goldwinddenmark.com" }
@@ -21,7 +21,10 @@ dependencies = [
     "dnv_bladed_results",
     "plotly",
     "matplotlib",
-    "filelock"
+    "filelock",
+    "dash",
+    "dash-bootstrap-components",
+    "dash-ag-grid"
 ]
 
 [tool.setuptools.packages.find]
