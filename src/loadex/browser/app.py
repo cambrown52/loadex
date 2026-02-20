@@ -9,7 +9,7 @@ import dash_bootstrap_components as dbc
 app = dash.Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.DARKLY],
     suppress_callback_exceptions=True
 )
 
@@ -18,9 +18,9 @@ app.layout = dbc.Container([
     dbc.NavbarSimple(
         children=[
             dbc.NavItem(dbc.NavLink("Upload Database", href="/")),
-            dbc.NavItem(dbc.NavLink("Overview", href="/overview")),
-            dbc.NavItem(dbc.NavLink("Sensors", href="/sensors")),
-            dbc.NavItem(dbc.NavLink("DLC Comparison", href="/dlc-comparison")),
+            dbc.NavItem(dbc.NavLink("File List", href="/filelist")),
+            dbc.NavItem(dbc.NavLink("Sensor List", href="/sensorlist")),
+            dbc.NavItem(dbc.NavLink("Plot", href="/plot")),
         ],
         brand="Loadex Browser",
         brand_href="/",
@@ -30,7 +30,7 @@ app.layout = dbc.Container([
     ),
     
     # Store for the dataset (will store serialized data)
-    dcc.Store(id='dataset-store', storage_type='session'),
+    dcc.Store(id='session-id-store', storage_type='session'),
     dcc.Store(id='dataset-metadata', storage_type='session'),
     
     # Page content
@@ -38,4 +38,4 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8050)
+    app.run(debug=True, port=8050,dev_tools_hot_reload=True)
