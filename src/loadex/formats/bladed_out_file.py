@@ -1,12 +1,22 @@
 from loadex.classes.filelist import File
 import dnv_bladed_results as bd
 import pandas as pd
+from pathlib import Path
 
 
 class BladedOutFile(File):
     """Contains a Bladed .out file from a loads dataset"""
 
     def __init__(self, filepath: str,metadata:dict=None):
+        filepath=Path(filepath)
+        if filepath.name.lower()=="dtbladed.in":
+            tefiles=filepath.parent.glob("*.$TE")
+            if len(tefiles)==0:
+                raise ValueError("No $TE file found in directory.")
+            if len(tefiles)>1:
+                raise ValueError("Multiple $TE files found in directory.")
+            filepath=tefiles[0]
+
         super().__init__(filepath,metadata)
         self._run = None
         self._sensors = None
