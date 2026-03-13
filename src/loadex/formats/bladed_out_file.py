@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 import json
 
-def flatten_dict(d, parent_key='', sep='.'):
+def flatten_dict(d, parent_key='', sep='.')->dict:
     items = {}
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -77,13 +77,14 @@ class BladedOutFile(File):
 
     def add_json_metadata(self):
         
-        jsonfile=f.filepath.parent / (f.filepath.stem + ".metadata.json")
-        jsonfile.exists()
+        jsonfile=self.filepath.parent / (self.filepath.stem + ".metadata.json")
+        if not jsonfile.exists():
+            return
         
         with open(jsonfile,'r') as f:
             jsondata=json.load(f)
         
-        jsondata=flatten_dict(jsondata,parent_key="json")
+        jsondata=flatten_dict(jsondata)
         self.metadata.update(jsondata)
 
     def set_metadata_from_file(self) -> dict:
