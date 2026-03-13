@@ -19,7 +19,7 @@ def status_to_logfile(progress:int, message:str, log_file:Path):
     with open(log_file,'w') as f:
         f.write(f'{progress}%\t{message}\n')
 
-def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutFile",fatigue_sensor_spec:list[dict]=None,update_log:function=None):
+def process_one_file(file_path: str,db_file:str=None,file_format:str="BladedOutFile",fatigue_sensor_spec:list[dict]=None,update_log:callable=None):
     file_path=Path(file_path)
     if not file_path.exists():
         warnings.warn(f"File not found: {file_path}", UserWarning)

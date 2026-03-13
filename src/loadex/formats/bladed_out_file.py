@@ -2,6 +2,20 @@ from loadex.classes.filelist import File
 import dnv_bladed_results as bd
 import pandas as pd
 from pathlib import Path
+import json
+
+def flatten_dict(d, parent_key='', sep='.'):
+    items = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.update(flatten_dict(v, new_key, sep=sep))
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                items.update(flatten_dict({f"{new_key}[{i}]": item}, '', sep=sep))
+        else:
+            items[new_key] = v
+    return items
 
 
 class BladedOutFile(File):
@@ -11,7 +25,8 @@ class BladedOutFile(File):
         filepath=Path(filepath)
         if filepath.name.lower()=="dtbladed.in":
             tefiles=filepath.parent.glob("*.$TE")
-            if len(tefiles)==0:
+            tefiles=[f for f in tefiles if f.is_file()]
+            if len(list(tefiles))==0:
                 raise ValueError("No $TE file found in directory.")
             if len(tefiles)>1:
                 raise ValueError("Multiple $TE files found in directory.")
@@ -60,6 +75,17 @@ class BladedOutFile(File):
         sensor=self.sensors.get(sensor_name)
         return sensor.metadata
 
+    def add_json_metadata(self):
+        
+        jsonfile=f.filepath.parent / (f.filepath.stem + ".metadata.json")
+        jsonfile.exists()
+        
+        with open(jsonfile,'r') as f:
+            jsondata=json.load(f)
+        
+        jsondata=flatten_dict(jsondata,parent_key="json")
+        self.metadata.update(jsondata)
+
     def set_metadata_from_file(self) -> dict:
         self.metadata["run_name"]=self.run.name
         self.metadata["calculation_type"]=self.run.calculation_type
@@ -84,15 +110,12 @@ class BladedOutFile(File):
         self.metadata["number_of_sensor_groups"]=all_groups.size    
         self.metadata["groups"]=dict(sorted({group.number:group.name for group in all_groups}.items()))
 
-        # try:
-        #     self.metadata["message_file_content"]=self.run.message_file_content
-        # except RuntimeError as e:
-        #     print("Cannot get run message file ($ME) content")
-
         try:
             self.metadata["termination_file_content"]=self.run.termination_file_content
         except RuntimeError as e:
             print("Cannot get run termination file ($TE) content")
+
+        self.add_json_metadata()
 
     def clear_connections(self):
         self._run = None

@@ -85,7 +85,10 @@ class File(object):
             y=y+offset
 
         if axis is None:
-            axis=plt.figure(figsize=(10,5))
+            fig=plt.figure(figsize=(10,5))
+            axis=fig.add_subplot(1,1,1)
+            print(axis)
+            print(type(axis))
             axis.set_xlabel("Time [s]")
             axis.set_ylabel(sensor_name)
         
@@ -94,6 +97,7 @@ class File(object):
 
         axis.plot(x, y, label=label )
         axis.grid(True)
+        return axis
 
 
     def to_sql(self,session):
