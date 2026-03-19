@@ -189,7 +189,7 @@ def initialize_plot_page(metadata, session_id):
             })
 
     y_column_defs = [
-        {'headerName': 'Type', 'field': 'source', 'checkboxSelection': True, 'headerCheckboxSelection': True, 'minWidth': 120, 'pinned': 'left'},
+        #{'headerName': 'Type', 'field': 'source', 'checkboxSelection': True, 'headerCheckboxSelection': True, 'minWidth': 120, 'pinned': 'left'},
         {'headerName': 'Sensor', 'field': 'sensor_name', 'minWidth': 240},
         {'headerName': 'Statistic', 'field': 'statistic', 'minWidth': 180},
         {'headerName': 'Label', 'field': 'label', 'minWidth': 260},
@@ -335,6 +335,10 @@ def update_dataset_plot(x_source, x_sensor_name, x_stat, selected_rows, session_
         return fig, "0 series selected"
 
     y_specs = []
+    
+    if len(selected_rows)>50:
+        selected_rows = selected_rows[:50]
+
     for row in selected_rows:
         source = row.get('source')
         statistic = row.get('statistic')

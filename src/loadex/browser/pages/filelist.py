@@ -86,9 +86,10 @@ def update_filelist_page(metadata, session_id):
 
     # Convert NaN/NaT to None for JSON serialization in rowData
     file_df = file_df.where(file_df.notna(), None)
+    safe_columns = {col: col.replace(".", "_") for col in file_df.columns}
+    file_df = file_df.rename(columns=safe_columns)
 
     row_data = file_df.to_dict('records')
-
     column_defs = [
         {
             'headerName': 'Filename',
@@ -99,14 +100,14 @@ def update_filelist_page(metadata, session_id):
         }
     ]
 
-    for column in file_df.columns:
-        if column == 'filename':
+    for original_name, safe_column in safe_columns.items():
+        if safe_column == 'filename':
             continue
         column_defs.append(
             {
-                'headerName': str(column),
-                'field': str(column),
-                'tooltipField': str(column),
+                'headerName': str(original_name),
+                'field': str(safe_column),
+                'tooltipField': str(original_name),
             }
         )
 
