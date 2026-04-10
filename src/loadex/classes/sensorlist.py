@@ -323,6 +323,7 @@ class SensorList(list):
     def _get_plotdata(self,spec:dict,filelist)->pd.Series:
         """Return data for plotting"""
         defaults = {
+            'name': None,
             'statistic': "mean",
             'scale': 1.0,
             'fillna': False,
@@ -331,6 +332,9 @@ class SensorList(list):
         if isinstance(spec,str):
             spec={"name":spec}
         
+        if any(key not in defaults.keys() for key in spec.keys()):
+            print(f"Invalid spec key(s) {set(spec.keys()) - set(defaults.keys())}. Allowed keys are: {list(defaults.keys())}")
+
         spec={**defaults, **spec}
         if "label" not in spec:
             spec["label"]=spec["name"]+" ("+spec["statistic"]+")"
