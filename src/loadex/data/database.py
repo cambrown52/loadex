@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
-from loadex.data.datamodel import Base, File
+from loadex.data.datamodel import Base, File,DesignLoadCase
 
 timeout=60
 
@@ -33,15 +33,28 @@ def get_sqlite_session(db_path,create_if_not_exists=True):
         # Ensure all tables are created (in case of an existing but incomplete DB)
         add_column_if_missing(engine,"files","type","TEXT")
 
+        add_table_if_missing(engine,DesignLoadCase)
+        add_column_if_missing(engine,"files","dlc_id","INTEGER")
+        add_column_if_missing(engine,"files","group","TEXT")
+        add_column_if_missing(engine,"files","hours","FLOAT")
+
     return sessionmaker(bind=engine)
 
+def add_table_if_missing(engine,table_class):
+    """Add a table to the database if it doesn't exist"""
+    inspector = inspect(engine)
+    if not inspector.has_table(table_class.__tablename__):
+        table_class.__table__.create(bind=engine)
 
 def add_column_if_missing(engine, table_name, column_name, column_type):
     """Add a column to a table if it doesn't exist"""
     inspector = inspect(engine)
+    if not inspector.has_table(table_name):
+        raise ValueError(f"Table '{table_name}' does not exist in the database.")
+    
     columns = [col['name'] for col in inspector.get_columns(table_name)]
     
     if column_name not in columns:
         with engine.connect() as conn:
-            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN '{column_name}' {column_type}"))
             conn.commit()

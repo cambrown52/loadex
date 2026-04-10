@@ -100,13 +100,18 @@ class File(object):
         return axis
 
 
-    def to_sql(self,session):
+    def to_sql(self,session,dlc_id:pd.Series=None):
         import loadex.formats
         
         session.query(datamodel.File).filter_by(filepath=str(self.filepath)).delete()
 
         db_file = datamodel.File(filepath=str(self.filepath),
-                                 type=loadex.formats.format_name(self))
+                                 type=loadex.formats.format_name(self),
+                                 group=self.group,
+                                 hours=self.hours)
+        if self.dlc is not None:
+            db_file.dlc_id=int(dlc_id[self.dlc.name])
+
         session.add(db_file)
 
         for key,value in self.metadata.items():
@@ -209,17 +214,17 @@ class FileList(list):
             group_dict[group].append(file)
         return group_dict
 
-    def to_sql(self,session):
+    def to_sql(self,session,dlc_id:pd.Series=None):
         """Store filelist in database"""
         file_id={}
         for file in self:
-            db_file = file.to_sql(session)
+            db_file = file.to_sql(session, dlc_id)
             file_id[str(file.filepath)] = db_file.id
         
         return pd.Series(file_id, name="file_id")
     
     @staticmethod
-    def from_sql(session) -> "FileList":
+    def from_sql(session,dataset) -> "FileList":
         """Load filelist from database"""
         import loadex.formats
         
@@ -239,7 +244,10 @@ class FileList(list):
         else:
             default_type = pd.Series(file_types).mode()[0]
             default_type = loadex.formats.format_class[default_type]
-            
+        
+        db_dlcs=session.query(datamodel.DesignLoadCase).all()
+        db_dlcs_dict={dlc.id: dlc.name for dlc in db_dlcs}
+
         for db_file in db_files:
             # get attributes for this file
             if db_file.id in df_file_attributes.index:
@@ -255,6 +263,12 @@ class FileList(list):
                 format_class = default_type
 
             file = format_class(db_file.filepath, metadata)
+            file.group=db_file.group
+            file.hours=db_file.hours
+
+            if db_file.dlc_id is not None:
+                file.dlc = dataset.dlcs.get_dlc(db_dlcs_dict[db_file.dlc_id])
+
             files.append(file)
         
         return FileList(files)

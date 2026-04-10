@@ -200,8 +200,11 @@ class DataSet(object):
 
         Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
         with Session() as session:
+            # Store DLCs
+            dlc_id=self.dlcs.to_sql(session)
+
             # Store files
-            file_ids=self.filelist.to_sql(session)
+            file_ids=self.filelist.to_sql(session,dlc_id)
             
             # Store sensors
             self.sensorlist.to_sql(session,file_ids)
@@ -227,8 +230,11 @@ class DataSet(object):
         ds=DataSet(name=name)
         Session=get_sqlite_session(database_file,create_if_not_exists=False)  # Ensure DB and tables are created
         with Session() as session:
+            # Define DLCs
+            DesignLoadCaseList.from_sql(session,ds)
+
             # Read files
-            ds.filelist=FileList.from_sql(session)
+            ds.filelist=FileList.from_sql(session,ds)
             
             # Read sensors
             ds.sensorlist=SensorList.from_sql(session)

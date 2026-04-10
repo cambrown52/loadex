@@ -3,12 +3,25 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+class DesignLoadCase(Base):
+    __tablename__ = "designloadcases"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    type = Column(String, nullable=False, default="Fatigue")
+    psf = Column(Float, nullable=False)
+
 class File(Base):
     __tablename__ = "files"
     __table_args__ = { 'sqlite_autoincrement': True }
     id = Column(Integer, primary_key=True)
     filepath = Column(String, unique=True, nullable=False)
     type = Column(String, nullable=True)
+    
+    group = Column(String, nullable=True)
+    hours = Column(Float, nullable=True)
+    
+    dlc_id = Column(Integer, ForeignKey("designloadcases.id", ondelete="SET NULL"), nullable=True)
+
     # Relationship to statistics
     standard_statistics = relationship("StandardStatistic", back_populates="file", cascade="all, delete-orphan")
     attributes = relationship("FileAttribute", back_populates="file", cascade="all, delete-orphan")
