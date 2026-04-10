@@ -233,6 +233,13 @@ class FileList(list):
         df_file_attributes=pd.read_sql(sql_query.statement, session.get_bind(), index_col='file_id')
         
         files = []
+        file_types=[db_file.type for db_file in db_files if db_file.type is not None]
+        if len(file_types)==0:
+            default_type=File
+        else:
+            default_type = pd.Series(file_types).mode()[0]
+            default_type = loadex.formats.format_class[default_type]
+            
         for db_file in db_files:
             # get attributes for this file
             if db_file.id in df_file_attributes.index:
@@ -244,8 +251,8 @@ class FileList(list):
             if db_file.type:
                 format_class = loadex.formats.format_class[db_file.type]
             else:
-                print(f"Warning: File type missing for {db_file.filepath}, defaulting to File class.")
-                format_class = File
+                print(f"Warning: File type missing for {db_file.filepath}, defaulting to {default_type} class.")
+                format_class = default_type
 
             file = format_class(db_file.filepath, metadata)
             files.append(file)
