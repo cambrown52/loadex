@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 
 import plotly.graph_objects as go
+import plotly.express as px
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -282,10 +284,13 @@ class DataSet(object):
     def __str__(self):
         return f"DataSet: {self.name}"
     
-    def equivalent_load(self, sensor_names: list[str], m: float | list[float],Nref: float=1e7) -> pd.DataFrame:
+    def equivalent_load(self, sensor_names: list[str], m: float | list[float],Nref: float=1e7,filelist=None) -> pd.DataFrame:
         """Calculate equivalent load for given sensors and m value"""
         
-        hours=self.filelist.get_hours()
+        if filelist is None:
+            filelist=self.filelist
+
+        hours=filelist.get_hours()
         
         if isinstance(m,float) or isinstance(m,int):
             m=[m]
@@ -301,15 +306,20 @@ class DataSet(object):
             
                 stat=stat[0].name
                 Leq=sensor.data[stat]
-                Leq.name=f"{sensor_name}_m{m_value}"
+                Leq.name=sensor_name
                 data.append(Leq)
         
             df=pd.concat(data,axis=1)
             df.columns.name="sensor"
             df=df.stack().reset_index().set_index("filename").rename(columns={0: "DEL1Hz"})
+
             df=df.join(hours, on="filename", how="left")
+            df["hours"]=df["hours"].fillna(0)
         
-            result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m_value * 3600 * x["hours"]).sum() / Nref )**(1/m_value) )
+            if isinstance(Nref,str) and Nref == "1Hz":
+                result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m_value * x["hours"]).sum() / x["hours"].sum() )**(1/m_value) )
+            else:
+                result=df.groupby("sensor").apply(lambda x: ( (x["DEL1Hz"]**m_value * 3600 * x["hours"]).sum() / Nref )**(1/m_value) )
             result=result.to_frame(name="equivalent_load")
             result["m"]=m_value
             result["Nref"]=Nref
@@ -336,8 +346,11 @@ class DataSet(object):
 
             
 
-    def plot_stats(self,y:list,x:dict=None,fig=None,engine="plotly"):
+    def plot_stats(self,y:list,x:dict=None,color:dict=None,fig=None,engine="plotly",filelist=None):
         """Plot statistics for a given sensor"""
+
+        if filelist is None:
+            filelist=self.filelist
         
         if fig:
             if isinstance(fig,go.Figure):
@@ -360,16 +373,21 @@ class DataSet(object):
                 fig=go.Figure()
 
             if x:
-                x=self._get_plotdata(x)
+                x=self._get_plotdata(x,filelist=filelist)
                 fig.update_layout(xaxis_title=x["label"])
             else:
                 x={"data":None}
 
             for y in y_list:
-                y=self._get_plotdata(y)
-                fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=self.name+" "+y["label"],hovertext=y["data"].index, marker=y["marker"]))
+                y=self._get_plotdata(y,filelist=filelist)
+                color=self._get_plotdata(color,filelist=filelist) if color else None
+                if color:
+                    px_fig=px.scatter(x=x["data"], y=y["data"], color=color["data"], color_continuous_scale='Viridis', hover_name=y["data"].index)
+                    fig.add_traces(px_fig.data)
+                else:
+                    fig.add_trace(go.Scatter(x=x["data"], y=y["data"], mode='markers', name=self.name+" "+y["label"],hovertext=y["data"].index, marker=y["marker"],marker_color=color))                    
+                
                 fig.update_layout(yaxis_title=y["label"])
-            
 
             return fig
         else:  # matplotlib
@@ -379,13 +397,13 @@ class DataSet(object):
                 ax = fig.gca()
 
             if x:
-                x=self._get_plotdata(x)
+                x=self._get_plotdata(x,filelist=filelist)
                 ax.set_xlabel(x["label"])
             else:
                 x={"data":None}
 
             for y in y_list:
-                y=self._get_plotdata(y)
+                y=self._get_plotdata(y,filelist=filelist)
                 ax.plot(x["data"], y["data"], marker=y["marker"]["symbol"], markerfacecolor=y["marker"]["color"],markeredgecolor=y["marker"]["color"], linestyle='None', label=self.name+" "+y["label"])
                 ax.set_ylabel(y["label"])
 
@@ -395,11 +413,13 @@ class DataSet(object):
             return fig
 
     
-    def _get_plotdata(self,spec:dict)->pd.Series:
+    def _get_plotdata(self,spec:dict,filelist=None)->pd.Series:
+        if filelist is None:
+            filelist=self.filelist
         if spec == "filelist" or (isinstance(spec, dict) and spec.get("name") == "filelist"):
-            return self.filelist._get_plotdata(spec=spec)
+            return filelist._get_plotdata(spec=spec)
         else:
-            return self.sensorlist._get_plotdata(spec=spec,filelist=self.filelist)
+            return self.sensorlist._get_plotdata(spec=spec,filelist=filelist)
 
 
 

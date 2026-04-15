@@ -52,7 +52,7 @@ def test_load_dataset():
     assert len(ds_reload.filelist)==len(ds.filelist)
     assert len(ds_reload.sensorlist)==len(ds.sensorlist)
 
-    assert ds_reload.to_dataframe().shape == ds.to_dataframe().shape
+    assert ds_reload.to_dataframe().drop(columns=[("filelist","database_file_id")]).shape == ds.to_dataframe().shape
     
     # spot check comparison of a sensor
     sens_reload=ds_reload.sensorlist.get_sensors("Tower Mx")[0]

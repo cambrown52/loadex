@@ -152,7 +152,15 @@ class FileList(list):
                 raise ValueError(f"No files found matching pattern '{pattern}'.")
         
         if dlc:
-            file=[f for f in file if f.dlc==dlc]
+            if not isinstance(dlc,list):
+                dlc=[dlc]
+            
+            if any(isinstance(d,str) for d in dlc):
+                raise ValueError(f"dlc must be a DesignLoadCase object, not a string. Use dataset.dlcs.get_dlc('{dlc}') to get the DLC object by name.")
+            
+            file=[f for f in file if f.dlc in dlc]
+            if len(file)==0:
+                raise ValueError(f"No files found matching DLC '{dlc.name}'.")
         
         if in_list:
             file=[f for f in file if str(f.filepath) in in_list]
@@ -236,7 +244,17 @@ class FileList(list):
         # bulk load file attributes
         sql_query = session.query(datamodel.FileAttribute)
         df_file_attributes=pd.read_sql(sql_query.statement, session.get_bind(), index_col='file_id')
-        
+
+        # convert dataframe to metadata dicts per file_id
+        if not df_file_attributes.empty:
+            df_file_attributes['_parsed'] = df_file_attributes['value'].map(json.loads)
+            file_metadata_map = {
+                file_id: dict(zip(group['key'], group['_parsed']))
+                for file_id, group in df_file_attributes.groupby(level=0)
+            }
+        else:
+            file_metadata_map = {}
+
         files = []
         file_types=[db_file.type for db_file in db_files if db_file.type is not None]
         if len(file_types)==0:
@@ -249,11 +267,8 @@ class FileList(list):
         db_dlcs_dict={dlc.id: dlc.name for dlc in db_dlcs}
 
         for db_file in db_files:
-            # get attributes for this file
-            if db_file.id in df_file_attributes.index:
-                metadata = {row.key: json.loads(row.value) for index, row in df_file_attributes.loc[db_file.id,:].iterrows()}
-            else:
-                metadata = {}
+            metadata = file_metadata_map.get(db_file.id, {})
+            metadata["database_file_id"]=db_file.id
 
             # create file object
             if db_file.type:

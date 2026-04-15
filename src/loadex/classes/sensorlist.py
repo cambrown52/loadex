@@ -216,35 +216,32 @@ class SensorList(list):
         print("Loading standard statistics from database...")
         sql_query=session.query(
             datamodel.File.filepath,
-            datamodel.Sensor.name.label('sensor_name'),
+            datamodel.StandardStatistic.sensor_id,
             datamodel.StandardStatistic.mean,
             datamodel.StandardStatistic.max,
             datamodel.StandardStatistic.min,
             datamodel.StandardStatistic.std,
-            ).join(datamodel.StandardStatistic.file)\
-            .join(datamodel.StandardStatistic.sensor)
+            ).join(datamodel.StandardStatistic.file)
         
         if db_sensors is not None:
             sql_query = sql_query.filter(datamodel.StandardStatistic.sensor_id.in_([s.id for s in db_sensors]))
-        
+
         df_standard_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
 
         # Load custom statistics
         print("Loading custom statistics from database...")
         sql_query=session.query(
             datamodel.File.filepath,
+            datamodel.CustomStatistic.sensor_id,
             datamodel.CustomStatistic.value,
             datamodel.StatisticType.name.label('stat_type'),
-            datamodel.Sensor.name.label('sensor_name'),
         ).join(datamodel.CustomStatistic.file)\
-        .join(datamodel.CustomStatistic.statistic_type)\
-        .join(datamodel.CustomStatistic.sensor)
+        .join(datamodel.CustomStatistic.statistic_type)
 
         if db_sensors is not None:
             sql_query = sql_query.filter(datamodel.CustomStatistic.sensor_id.in_([s.id for s in db_sensors]))
 
         df_custom_stats=pd.read_sql(sql_query.statement, session.get_bind(), index_col='filepath')
-
 
         db_statistic_types=session.query(datamodel.StatisticType).all()
         statistic_types = {type.name : statistics.CustomStatistic.from_sql(session, type) for type in db_statistic_types}
@@ -253,25 +250,25 @@ class SensorList(list):
         print("Adding statistics into sensor objects...")
         
         # Group dataframes by sensor once (much faster than filtering in loop)
-        grouped_standard = df_standard_stats.groupby('sensor_name')
+        grouped_standard = df_standard_stats.groupby('sensor_id')
         
         # Pivot custom stats once if they exist
         if not df_custom_stats.empty:
             df_custom_stats_pivoted = df_custom_stats.pivot_table(
-                index=['filepath', 'sensor_name'], 
+                index=['filepath', 'sensor_id'], 
                 columns='stat_type', 
                 values='value'
             ).reset_index().set_index('filepath')
-            grouped_custom = df_custom_stats_pivoted.groupby('sensor_name')
+            grouped_custom = df_custom_stats_pivoted.groupby('sensor_id')
         else:
             grouped_custom = None
         
         for sensor in self:
             # Get pre-grouped data (O(1) lookup vs O(n) filter)
-            df_sensor_standard_stats = grouped_standard.get_group(sensor.name) if sensor.name in grouped_standard.groups else pd.DataFrame()
+            df_sensor_standard_stats = grouped_standard.get_group(sensor.metadata["database_sensor_id"]) if sensor.metadata["database_sensor_id"] in grouped_standard.groups else pd.DataFrame()
             
-            if grouped_custom is not None and sensor.name in grouped_custom.groups:
-                df_sensor_custom_stats = grouped_custom.get_group(sensor.name).drop(columns=["sensor_name"])
+            if grouped_custom is not None and sensor.metadata["database_sensor_id"] in grouped_custom.groups:
+                df_sensor_custom_stats = grouped_custom.get_group(sensor.metadata["database_sensor_id"]).drop(columns=["sensor_id"])
                 
                 # Drop columns that are all NULL (stat types not used by this sensor)
                 df_sensor_custom_stats = df_sensor_custom_stats.dropna(axis=1, how='all')
@@ -281,9 +278,9 @@ class SensorList(list):
                     sensor.statistics.append(statistic_types[stat_type_name].copy())
                 
                 # Merge standard and custom stats
-                df_sensor_stats = pd.concat([df_sensor_standard_stats.drop(columns=['sensor_name']), df_sensor_custom_stats], axis=1)
+                df_sensor_stats = pd.concat([df_sensor_standard_stats.drop(columns=['sensor_id']), df_sensor_custom_stats], axis=1)
             else:
-                df_sensor_stats = df_sensor_standard_stats.drop(columns=['sensor_name'])
+                df_sensor_stats = df_sensor_standard_stats.drop(columns=['sensor_id'])
             
             # add data to sensor
             #print(f"{sensor.name}: {[ col for col in df_sensor_stats.columns]} ({len(df_sensor_stats.columns.tolist())} columns)")
@@ -310,8 +307,9 @@ class SensorList(list):
         # convert to Sensor objects with metadata in SensorList
         sensorlist=[]
         for db_sensor in db_sensors:
-            #metadata={key: value_parsed for key, value_parsed in grouped_attributes.get_group(db_sensor.id)[["key", "value_parsed"]].itertuples(index=False)}
-            sensorlist.append(Sensor(db_sensor.name,metadata=df_sensor_metadata.get(db_sensor.id,{})))
+            metadata=df_sensor_metadata.get(db_sensor.id,{})
+            metadata["database_sensor_id"]=db_sensor.id
+            sensorlist.append(Sensor(db_sensor.name,metadata=metadata))
         
         sensorlist=SensorList(sensorlist)
 
@@ -341,7 +339,6 @@ class SensorList(list):
 
         x=self.get_sensor(spec["name"]).data[spec["statistic"]]*spec["scale"]
         x=x.reindex(filelist.to_index(), fill_value=pd.NA)
-        #x=x.reindex([str(file.filepath) for file in filelist], fill_value=pd.NA)
         if spec["fillna"]:
             x=x.fillna(spec["fillna"])
         spec["data"]=x

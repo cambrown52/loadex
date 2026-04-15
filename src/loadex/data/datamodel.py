@@ -58,7 +58,7 @@ class SensorAttribute(Base):
 class StandardStatistic(Base):
     __tablename__ = "standardstatistics"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False,index=True)
     sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
 
     mean = Column(Float)
@@ -80,10 +80,10 @@ class StatisticType(Base):
 class CustomStatistic(Base):
     __tablename__ = "customstatistics"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False,index=True)
     sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
 
-    statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False)
+    statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False,index=True)
 
     value = Column(Float, nullable=False)    
 

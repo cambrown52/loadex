@@ -65,6 +65,27 @@ class DesignLoadCaseList(list):
     def names(self):
         return [dlc.name for dlc in self]
 
+    def get_dlcs(self,pattern:str=None,names:list[str]=None,type:str=None)->"DesignLoadCaseList":
+        """Return a list of DLCs matching the pattern and type"""
+        dlcs=self
+        if pattern:
+            dlcs=[dlc for dlc in dlcs if pattern in dlc.name]
+            if len(dlcs)==0:
+                raise ValueError(f"No dlcs found matching pattern '{pattern}'.")
+        
+        if names:
+            dlcs=[dlc for dlc in dlcs if dlc.name in names]
+            if len(dlcs)==0:
+                raise ValueError(f"No dlcs found matching names '{names}'.")
+        
+
+        if type:
+            dlcs=[dlc for dlc in dlcs if dlc.type==type]
+            if len(dlcs)==0:
+                raise ValueError(f"No dlcs after filtering by type == '{type}'.")
+        
+        return DesignLoadCaseList(dlcs)
+    
     def get_dlc(self, name: str) -> "DesignLoadCase":
         """Return a DLC by name"""
         for dlc in self:
