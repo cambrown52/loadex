@@ -95,6 +95,7 @@ class DesignLoadCaseList(list):
     
     def to_sql(self,session):
         """Save the DLCs to the database"""
+        print("Saving DLCs to database...")
         dlc_id={}
         for dlc in self:
             db_dlc=dlc.to_sql(session)

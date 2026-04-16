@@ -41,11 +41,11 @@ class Sensor(object):
             if not any(isinstance(stat, statistics.EquivalentLoad) and stat.params["m"] == wohler for stat in self.statistics):
                 self.statistics.append(statistics.EquivalentLoad(wohler))
 
-    def to_sql(self,session,file_id):
+    def to_sql(self,session):
         db_sensor=self.add_or_get_database_sensor(session)
-        self.insert_standard_statistics(session,db_sensor,file_id)
-        self.insert_custom_statistics(session,db_sensor,file_id)
-        return db_sensor
+        df_standard_stats=self.get_standard_statistics(session,db_sensor)
+        df_custom_stats=self.get_custom_statistics(session,db_sensor)
+        return db_sensor,df_standard_stats, df_custom_stats
 
     def add_or_get_database_sensor(self,session):
         db_sensor = session.query(datamodel.Sensor).filter_by(name=self.name).first()
@@ -66,40 +66,35 @@ class Sensor(object):
         session.flush()  # Flush to get db_sensor.id without committing
         return db_sensor
     
-    def insert_standard_statistics(self,session,db_sensor,file_id):
-        standard_data=self.data.loc[:,["mean","max","min","std"]]
-        standard_data=standard_data.join(file_id, how="left")
+    def get_standard_statistics(self,session,db_sensor)->pd.DataFrame:
+        standard_data=self.data.loc[:,["mean","max","min","std"]].copy()
         standard_data["sensor_id"]=db_sensor.id
-    
-        # Bulk insert
-        session.bulk_insert_mappings(datamodel.StandardStatistic, standard_data.to_dict('records'))
-        #standard_data.to_sql('standard_statistics', session.get_bind(), if_exists='append', index=False)
+
+        return standard_data
 
 
-    def insert_custom_statistics(self,session,db_sensor,file_id):
+    def get_custom_statistics(self,session,db_sensor)->pd.DataFrame:
         
         custom_stats = [stat for stat in self.statistics if isinstance(stat,statistics.CustomStatistic)]
         if not custom_stats:
             return
         
-        custom_stats=pd.DataFrame(custom_stats,columns=["object"])
-        custom_stats["stat_name"]=custom_stats["object"].apply(lambda x: x.name)
-        custom_stats["statistic_type_id"]=custom_stats["object"].apply(lambda x: x.add_or_get_database_statistic(session).id)
-        
-        custom_stat_data=self.data.loc[:, custom_stats["stat_name"]]
+        stat_names = [stat.name for stat in custom_stats]
+        stat_type_ids = {stat.name: stat.add_or_get_database_statistic(session).id for stat in custom_stats}
+
+        custom_stat_data=self.data.loc[:, stat_names].copy()
         custom_stat_data.columns.name="stat_name"
-        custom_stat_data=custom_stat_data.unstack()
-        custom_stat_data.name="value"
-        custom_stat_data=custom_stat_data.reset_index(level="stat_name")
-        custom_stat_data=custom_stat_data.join(file_id, how="left")
 
-        custom_stat_data=custom_stat_data.join(custom_stats.set_index("stat_name")["statistic_type_id"], on="stat_name")
-        
-        custom_stat_data["sensor_id"]=db_sensor.id
+        custom_stat_data=custom_stat_data.melt(
+                ignore_index=False,
+                var_name="stat_name",
+                value_name="value"
+            )
 
-        # Bulk insert
-        session.bulk_insert_mappings(datamodel.CustomStatistic, custom_stat_data.to_dict('records'))
-        #custom_stats.to_sql('custom_statistics', session.get_bind(), if_exists='append', index=False)
+        custom_stat_data["statistic_type_id"] = custom_stat_data["stat_name"].map(stat_type_ids)
+        custom_stat_data["sensor_id"] = db_sensor.id
+
+        return custom_stat_data
 
     
     def _extreme_load(self,filelist:"filelist.FileList",characteristic=False)->pd.DataFrame:
@@ -187,8 +182,49 @@ class SensorList(list):
         return result
     
     def to_sql(self,session,file_id):
-        for sensor in self:
-            sensor.to_sql(session,file_id)
+        print("Saving sensorlist to database...")
+        dfs_custom_stats=[]
+        dfs_standard_stats=[]
+        for i, sensor in enumerate(self):
+            print(f"   [{i+1}/{len(self)}] inserting '{sensor.name}'")
+            db_sensor,df_standard_stats,df_custom_stats=sensor.to_sql(session)
+            dfs_standard_stats.append(df_standard_stats)
+            dfs_custom_stats.append(df_custom_stats)
+        
+
+        cursor = session.connection().connection.cursor()
+
+        # Drop indexes before bulk insert - rebuilding from scratch is faster than incremental updates
+        cursor.execute("DROP INDEX IF EXISTS ix_standardstatistics_file_id")
+        cursor.execute("DROP INDEX IF EXISTS ix_customstatistics_file_id")
+        cursor.execute("DROP INDEX IF EXISTS ix_customstatistics_statistic_type_id")
+
+        print("Saving standard statistics to database...")
+        df_standard_stats=pd.concat(dfs_standard_stats,axis=0)
+        df_standard_stats["file_id"]=df_standard_stats.index.map(file_id)
+        
+        df_standard_stats=df_standard_stats.reset_index(drop=True)
+        cursor.executemany(
+            "INSERT INTO standardstatistics (mean, max, min, std, file_id, sensor_id) VALUES (?,?,?,?,?,?)",
+            df_standard_stats[["mean","max","min","std","file_id","sensor_id"]].itertuples(index=False)
+        )
+
+        print("Saving custom statistics to database...")
+        df_custom_stats=pd.concat(dfs_custom_stats,axis=0)
+        df_custom_stats["file_id"]=df_custom_stats.index.map(file_id)
+        df_custom_stats=df_custom_stats.drop(columns=['stat_name'], errors='ignore')
+        cursor.executemany(
+            "INSERT INTO customstatistics (file_id, sensor_id, statistic_type_id, value) VALUES (?,?,?,?)",
+            df_custom_stats[["file_id","sensor_id","statistic_type_id","value"]].itertuples(index=False)
+        )
+
+        # Recreate indexes
+        print("Rebuilding indexes...")
+        cursor.execute("CREATE INDEX ix_standardstatistics_file_id ON standardstatistics (file_id)")
+        cursor.execute("CREATE INDEX ix_customstatistics_file_id ON customstatistics (file_id)")
+        cursor.execute("CREATE INDEX ix_customstatistics_statistic_type_id ON customstatistics (statistic_type_id)")
+
+        
 
     def read_sensor_attributes(self,session):
         """Read sensor attributes for all sensors in the list from the database"""

@@ -200,6 +200,7 @@ class DataSet(object):
     def to_sql(self, database_file:str):
         """Save the dataset to a SQLite database"""
 
+        print(f"Saving dataset '{self.name}' to database: {database_file}")
         Session=get_sqlite_session(database_file)  # Ensure DB and tables are created
         with Session() as session:
             # Store DLCs
@@ -213,6 +214,7 @@ class DataSet(object):
             
             # Commit once at the end
             session.commit()
+        print(f"Finished writing dataset '{self.name}' to database")
 
     @staticmethod
     def from_sql(database_file:str, name:str=None,copy_to_temp=False)->"DataSet":

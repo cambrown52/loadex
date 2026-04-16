@@ -103,8 +103,6 @@ class File(object):
     def to_sql(self,session,dlc_id:pd.Series=None):
         import loadex.formats
         
-        session.query(datamodel.File).filter_by(filepath=str(self.filepath)).delete()
-
         db_file = datamodel.File(filepath=str(self.filepath),
                                  type=loadex.formats.format_name(self),
                                  group=self.group,
@@ -113,16 +111,7 @@ class File(object):
             db_file.dlc_id=int(dlc_id[self.dlc.name])
 
         session.add(db_file)
-
-        for key,value in self.metadata.items():
-            db_attr = datamodel.FileAttribute(
-                file=db_file,
-                key=key,
-                value=json.dumps(value)
-            )
-            session.add(db_attr)
         
-        session.flush()  # Flush to get db_file.id without committing
         return db_file
 
     def __repr__(self):
@@ -224,11 +213,31 @@ class FileList(list):
 
     def to_sql(self,session,dlc_id:pd.Series=None):
         """Store filelist in database"""
-        file_id={}
-        for file in self:
-            db_file = file.to_sql(session, dlc_id)
-            file_id[str(file.filepath)] = db_file.id
-        
+
+        # remove existing files with the same filepaths to avoid duplicates
+        print("Deleting overlapping filelist from database...")
+        session.query(datamodel.File).filter(datamodel.File.filepath.in_(self.filepaths)).delete(synchronize_session=False)
+
+        # add files to database
+        print("Saving filelist to database...")
+        db_files= [ file.to_sql(session,dlc_id) for file in self]
+        session.flush()  # Flush all added files to get db_file.id's
+
+        # store database ids to return a Series mapping filepaths to database ids
+        file_id={str(db_file.filepath): db_file.id for db_file in db_files}
+
+        # bulk insert file attributes after flush (faster than session.add per attribute)
+        cursor = session.connection().connection.cursor()
+        attr_rows = [
+            (db_file.id, key, json.dumps(value))
+            for file, db_file in zip(self, db_files)
+            for key, value in file.metadata.items()
+        ]
+        cursor.executemany(
+            "INSERT INTO fileattributes (file_id, key, value) VALUES (?,?,?)",
+            attr_rows
+        )
+
         return pd.Series(file_id, name="file_id")
     
     @staticmethod

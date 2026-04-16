@@ -29,7 +29,7 @@ class File(Base):
 class FileAttribute(Base):
     __tablename__ = "fileattributes"
     id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False,index=True)
     key = Column(String, nullable=False)
     value = Column(Text, nullable=False)  # JSON-encoded string
 
@@ -59,7 +59,7 @@ class StandardStatistic(Base):
     __tablename__ = "standardstatistics"
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False,index=True)
-    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
+    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False)
 
     mean = Column(Float)
     max = Column(Float)
@@ -81,7 +81,7 @@ class CustomStatistic(Base):
     __tablename__ = "customstatistics"
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False,index=True)
-    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
+    sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False)
 
     statistic_type_id = Column(Integer, ForeignKey("statistictypes.id"), nullable=False,index=True)
 
