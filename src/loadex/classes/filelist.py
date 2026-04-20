@@ -168,6 +168,13 @@ class FileList(list):
             dlc_dict[str(file.filepath)]=file.dlc.name if file.dlc is not None else None
         return pd.Series(dlc_dict, name="dlc")
     
+    def get_averaging_method(self)->pd.Series:
+        """Return a Series with the averaging method for all files in the filelist"""
+        averaging_method_dict={}
+        for file in self:
+            averaging_method_dict[str(file.filepath)]=file.dlc.averaging_method if file.dlc is not None else None
+        return pd.Series(averaging_method_dict, name="averaging_method")
+    
     def get_psf(self)->pd.Series:
         """Return a Series with the partial safety factor for all files in the filelist"""
         psf_dict={}

@@ -4,16 +4,21 @@ from loadex.data import datamodel
 import pandas as pd
 
 
+averaging_methods=["MeanOfMax","MeanHalf"]
 
 class DesignLoadCase(object):
     """Contains a DLC"""
 
-    def __init__(self,parent , name: str):
+    def __init__(self,parent , name: str, type: str="Fatigue", averaging_method: str="MeanOfMax",partial_safety_factor: float=1.0):
         self.parent = parent
         self.name = name
         
-        self.partial_safety_factor=1.0
-        self.type="Fatigue"
+        self.partial_safety_factor=partial_safety_factor
+        self.type=type
+        if averaging_method not in averaging_methods:
+            raise ValueError(f"Invalid averaging method '{averaging_method}'. Must be one of {averaging_methods}.")
+        
+        self.averaging_method=averaging_method
     
 
     @property
@@ -55,6 +60,21 @@ class DesignLoadCase(object):
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
+    
+    @staticmethod
+    def apply_averaging(rows:pd.Series, averaging_method:str)->pd.DataFrame:
+        """Apply the averaging method to the rows of the DataFrame"""
+        if isinstance(averaging_method, pd.Series):
+            if len(averaging_method.unique())>1:
+                raise ValueError(f"Multiple averaging methods found in the rows: {averaging_method.unique()}. Cannot apply averaging.")
+            averaging_method=averaging_method.iloc[0]
+
+        if averaging_method=="MeanOfMax":
+            return rows.mean()
+        elif averaging_method=="MeanHalf":
+            return rows.sort_values().iloc[len(rows)//2:].mean()
+        else:
+            raise ValueError(f"Invalid averaging method '{averaging_method}'. Must be one of {averaging_methods}.")
 
 
 
