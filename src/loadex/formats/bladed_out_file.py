@@ -78,6 +78,9 @@ class BladedOutFile(File):
     def add_json_metadata(self):
         
         jsonfile=self.filepath.parent / (self.filepath.stem + ".metadata.json")
+        if not self.filepath.exists():
+            raise ValueError(f"File {self.filepath} not found.")
+        
         if not jsonfile.exists():
             return
         

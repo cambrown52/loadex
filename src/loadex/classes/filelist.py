@@ -132,7 +132,7 @@ class FileList(list):
                 return file
         raise ValueError(f"File '{name}' not found in filelist.")
 
-    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None, in_list: list[str] = None )->"FileList":
+    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None, in_list: list[str] = None,metadata:dict=None )->"FileList":
         """Return a list of files by pattern"""
         file=self
         if pattern:
@@ -153,6 +153,13 @@ class FileList(list):
         
         if in_list:
             file=[f for f in file if str(f.filepath) in in_list]
+
+        if metadata:
+            for key, value in metadata.items():
+                if callable(value):
+                    file = [f for f in file if key in f.metadata and value(f.metadata[key])]
+                else:
+                    file = [f for f in file if key in f.metadata and f.metadata[key] == value]
 
         return FileList(file)
     
@@ -306,7 +313,7 @@ class FileList(list):
     
     def to_dataframe(self)->pd.DataFrame:
         """Return a DataFrame with metadata for all files in the filelist"""
-        df=pd.concat([self.get_dlc(),self.get_groups(),self.get_psf(),self.get_hours(), self.metadata ], axis=1, join='outer')
+        df=pd.concat([self.get_dlc(),self.get_groups(),self.get_averaging_method(),self.get_psf(),self.get_hours(), self.metadata ], axis=1, join='outer')
         df.index.name="filepath"
         return df
 
