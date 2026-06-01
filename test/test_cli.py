@@ -17,8 +17,8 @@ def test_process_one_file():
 
     # process two files via CLI function
     process_one_file(data_directory / "idling.$PJ",db_file, "BladedOutFile")
-    process_one_file(data_directory / "parked.prj",db_file, "BladedOutFile")
-    process_one_file(data_directory / "parked.prj",db_file, "BladedOutFile") #re-process one file to test owerwrite
+    process_one_file(data_directory / "parked.$PJ",db_file, "BladedOutFile")
+    process_one_file(data_directory / "parked.$PJ",db_file, "BladedOutFile") #re-process one file to test owerwrite
 
     assert db_file.exists()
 

@@ -72,11 +72,14 @@ class File(object):
         return True, file_stats
 
 
-    def plot_timeseries(self,sensor_name:str, axis=None,scale:float=None,offset: float = None,label=None):
+    def plot_timeseries(self,sensor_name:str, axis=None,scale:float=None,offset: float = None,time_offset:float = None,label=None):
         """Plot the data for a given sensor"""
         import matplotlib.pyplot as plt
 
         x = self.get_time()
+        if time_offset:
+            x=x+time_offset
+            
         y = self.get_data(sensor_name)
         
         if scale:
