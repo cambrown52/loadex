@@ -50,6 +50,7 @@ app.layout = dbc.Container([
             dbc.NavItem(dbc.NavLink("File List", href="/filelist")),
             dbc.NavItem(dbc.NavLink("Sensor List", href="/sensorlist")),
             dbc.NavItem(dbc.NavLink("Plot", href="/plot")),
+            dbc.NavItem(dbc.NavLink("Time Series", href="/timeseries")),
             dbc.Button(
                 id='dataset-metadata-button',
                 color="light",
