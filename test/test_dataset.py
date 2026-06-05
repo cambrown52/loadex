@@ -30,6 +30,13 @@ def test_load_dataset():
     ds.sensorlist.get_sensors("Tower My").add_rainflow_statistics([3,4,5])
     ds.sensorlist.get_sensors("Tower Mz").add_rainflow_statistics([3,4,5])
 
+    # add a virtual sensor
+    ds.sensorlist.add_virtual_sensor(
+        name="Tower Mxy",
+        inputs={"Mx": ds.sensorlist.get_sensors("Tower Mx")[0], "My": ds.sensorlist.get_sensors("Tower My")[0]},
+        function="np.sqrt(Mx**2 + My**2)"
+    )
+
     # generate statistics
     ds.generate_statistics(parallel=True)
     ds.generate_statistics()

@@ -5,9 +5,12 @@ from pathlib import Path
 from typing import List, Dict
 import json
 
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
 from loadex.classes.designloadcases import DesignLoadCase
 from loadex.data import datamodel
-from loadex.classes.sensorlist import SensorList
+from loadex.classes.sensorlist import SensorList, Sensor
 
 
 class File(object):
@@ -46,6 +49,10 @@ class File(object):
     def get_data(self,sensor_name) -> pd.Series:
         pass
     
+    def get_timeseries(self,sensor_name) -> pd.Series:
+        """Alias for get_data. Return the timeseries data for a given sensor as a pandas Series"""
+        return self.get_data(sensor_name)
+
     @abstractmethod
     def to_dataframe(self) -> pd.DataFrame:
         pass
@@ -63,7 +70,7 @@ class File(object):
             self.set_metadata_from_file()
             t=self.get_time()
             for sensor in sensorlist:
-                x=self.get_data(sensor.name)
+                x=sensor.get_timeseries(self)
                 row={stat.name: stat.aggregation_function(x,t) for stat in sensor.statistics}
                 file_stats[sensor.name] = row
         except Exception as e:
@@ -72,35 +79,63 @@ class File(object):
         return True, file_stats
 
 
-    def plot_timeseries(self,sensor_name:str, axis=None,scale:float=None,offset: float = None,time_offset:float = None,label=None):
+    def plot_timeseries(self,sensor:str|Sensor, axis=None,scale:float=None,offset: float = None,time_offset:float = None,label=None,engine:str="matplotlib",row:int=None,col:int=None,line_color:str=None,showlegend:bool|None=None,legendgroup:str|None=None,xaxis_id:str|None=None,yaxis_id:str|None=None):
         """Plot the data for a given sensor"""
-        import matplotlib.pyplot as plt
+
 
         x = self.get_time()
         if time_offset:
             x=x+time_offset
-            
-        y = self.get_data(sensor_name)
+        
+        if isinstance(sensor, str):
+            sensor_name=sensor
+            y = self.get_data(sensor)
+        else:
+            sensor_name=sensor.name
+            y = sensor.get_timeseries(self)
         
         if scale:
             y=y*scale
         if offset:
             y=y+offset
 
-        if axis is None:
-            fig=plt.figure(figsize=(10,5))
-            axis=fig.add_subplot(1,1,1)
-            print(axis)
-            print(type(axis))
-            axis.set_xlabel("Time [s]")
-            axis.set_ylabel(sensor_name)
-        
         if not label:
             label = self.filepath.name
 
-        axis.plot(x, y, label=label )
-        axis.grid(True)
-        return axis
+        if engine=="matplotlib":
+            if axis is None:
+                fig=plt.figure(figsize=(10,5))
+                axis=fig.add_subplot(1,1,1)
+                axis.set_xlabel("Time [s]")
+                axis.set_ylabel(sensor_name)
+
+            axis.plot(x, y, label=label )
+            axis.grid(True)
+            axis.legend()
+            return axis
+        
+        elif engine=="plotly":
+            fig = axis if axis is not None else go.Figure()
+            trace = go.Scatter(
+                x=x,
+                y=y,
+                mode='lines',
+                name=label,
+                line={'color': line_color} if line_color else None,
+                showlegend=showlegend,
+                legendgroup=legendgroup,
+                xaxis=xaxis_id,
+                yaxis=yaxis_id,
+            )
+
+            if row is not None and col is not None:
+                fig.add_trace(trace, row=row, col=col)
+            else:
+                fig.add_trace(trace)
+
+            if axis is None:
+                fig.update_layout(xaxis_title="Time [s]", yaxis_title=sensor_name)
+            return fig
 
 
     def to_sql(self,session,dlc_id:pd.Series=None):

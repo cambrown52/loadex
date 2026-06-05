@@ -18,6 +18,10 @@ class Sensor(object):
         self.metadata = metadata
 
 
+    def get_timeseries(self,file):
+        """Return the timeseries data for this sensor as a pandas Series"""
+        return file.get_data(self.name)
+    
     
     def _insert_generated_statistics(self,new_data:pd.DataFrame):
         """Insert cached data into the data DataFrame"""
@@ -140,10 +144,10 @@ class Sensor(object):
         return statistic_name in [stat.name for stat in self.statistics]
         
     def __repr__(self):
-        return f"Sensor({self.name})"
+        return f"{self.__class__.__name__}({self.name})"
 
     def __str__(self):
-        return f"Sensor: {self.name}"
+        return f"{self.__class__.__name__}: {self.name}"
     
 
     
@@ -181,6 +185,21 @@ class SensorList(list):
         for sensor in self:
             sensor.add_rainflow_statistics(m)
 
+    def add_virtual_sensor(self,name:str,inputs: dict[str, Sensor], function: str, metadata: dict={}):
+        from loadex.classes.virtualsensor import VirtualSensor
+
+        for input_name,input_sensor in inputs.items():
+            if isinstance(input_sensor,str):
+                input_sensor=self.get_sensor(input_sensor)
+                inputs[input_name]=input_sensor
+
+            if not isinstance(input_sensor,Sensor):
+                raise ValueError(f"Input '{input_name}' for virtual sensor '{name}' must be a Sensor object or sensor name, got {type(input_sensor)}")
+            if input_sensor not in self:
+                raise ValueError(f"Input sensor '{input_sensor.name}' for virtual sensor '{name}' not found in sensor list.")
+            
+        self.append(VirtualSensor(name, inputs, function, metadata))
+
     def to_dict(self):
         result = {}
         for s in self:
@@ -192,7 +211,6 @@ class SensorList(list):
         dfs_custom_stats=[]
         dfs_standard_stats=[]
         for i, sensor in enumerate(self):
-            print(f"   [{i+1}/{len(self)}] inserting '{sensor.name}'")
             db_sensor,df_standard_stats,df_custom_stats=sensor.to_sql(session)
             dfs_standard_stats.append(df_standard_stats)
             dfs_custom_stats.append(df_custom_stats)
@@ -338,6 +356,7 @@ class SensorList(list):
     
     @staticmethod
     def from_sql(session):
+        """Load sensors from database and return a SensorList"""    
         # load sensor list from database
         print("Loading sensor list from database...")
         db_sensors = session.query(datamodel.Sensor).all()
@@ -350,11 +369,16 @@ class SensorList(list):
         df_sensor_metadata=df_sensor_attributes.groupby('sensor_id').apply(lambda x: {row.key: row.value_parsed for index, row in x.iterrows()})
     
         # convert to Sensor objects with metadata in SensorList
-        sensorlist=[]
+        sensorlist=SensorList([])
         for db_sensor in db_sensors:
             metadata=df_sensor_metadata.get(db_sensor.id,{})
             metadata["database_sensor_id"]=db_sensor.id
-            sensorlist.append(Sensor(db_sensor.name,metadata=metadata))
+            if not db_sensor.is_virtual:
+                sensorlist.append(Sensor(db_sensor.name,metadata=metadata))
+            else:
+                db_virtual_sensor_inputs=session.query(datamodel.VirtualSensorInputs).filter_by(virtual_sensor_id=db_sensor.id).all()
+                inputs={input.input_name: sensorlist.get_sensor(input.input_sensor.name) for input in db_virtual_sensor_inputs}
+                sensorlist.add_virtual_sensor(name=db_sensor.name, inputs=inputs, function=db_sensor.function, metadata=metadata)
         
         sensorlist=SensorList(sensorlist)
 
@@ -388,6 +412,7 @@ class SensorList(list):
             x=x.fillna(spec["fillna"])
         spec["data"]=x
         return spec
+    
     def to_dataframe(self):
         """Return a DataFrame representation of the SensorList"""
         df=pd.DataFrame([s.metadata for s in self], index=[s.name for s in self])
@@ -395,5 +420,12 @@ class SensorList(list):
         df.index.name="sensor_name"
         return df
     
+    def contemporaneous_load(self,filelist:"filelist.FileList", characteristic=False) -> pd.DataFrame:
+        """Calculate contemporaneous load for the SensorList"""
+        raise NotImplementedError("Contemporaneous load calculation is not implemented yet.")
+        for sensor in self:
+            df_extreme = sensor._extreme_load(filelist=filelist,characteristic=characteristic)
+
+
     def __repr__(self):
         return self.to_dataframe().to_string()

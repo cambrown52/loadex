@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Text
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -43,7 +43,24 @@ class Sensor(Base):
     # Relationship to statistics
     standard_statistics = relationship("StandardStatistic", back_populates="sensor")
 
+    is_virtual = Column(Boolean, default=False)
+    function = Column(Text, nullable=True)  # If this is a virtual sensor, store the function as a string
+
     attributes = relationship("SensorAttribute", back_populates="sensor")
+
+
+class VirtualSensorInputs(Base):
+    __tablename__ = "virtualsensorinputs"
+    id = Column(Integer, primary_key=True)
+    virtual_sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="CASCADE"), nullable=False,index=True)
+
+    input_name = Column(String, nullable=False)  # e.g. "x", "y", "theta" to be used in the function expression
+    input_sensor_id = Column(Integer, ForeignKey("sensors.id", ondelete="RESTRICT"), nullable=False,index=True)
+
+    # Relationships
+    virtual_sensor = relationship("Sensor", foreign_keys=[virtual_sensor_id], passive_deletes=True)
+    input_sensor = relationship("Sensor", foreign_keys=[input_sensor_id], passive_deletes=True)
+
 
 class SensorAttribute(Base):
     __tablename__ = "sensorattributes"

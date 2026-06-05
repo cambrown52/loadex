@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
-from loadex.data.datamodel import Base, File,DesignLoadCase
+from loadex.data.datamodel import Base, File,DesignLoadCase,VirtualSensorInputs
 
 timeout=60
 
@@ -33,10 +33,16 @@ def get_sqlite_session(db_path,create_if_not_exists=True):
         # Ensure all tables are created (in case of an existing but incomplete DB)
         add_column_if_missing(engine,"files","type","TEXT")
 
+        #add dlc related columns if missing
         add_table_if_missing(engine,DesignLoadCase)
         add_column_if_missing(engine,"files","dlc_id","INTEGER")
         add_column_if_missing(engine,"files","group","TEXT")
         add_column_if_missing(engine,"files","hours","FLOAT")
+
+        # add virtual sensor related inputs if missing
+        add_table_if_missing(engine,VirtualSensorInputs)
+        add_column_if_missing(engine,"sensors","is_virtual","BOOLEAN")
+        add_column_if_missing(engine,"sensors","function","TEXT")
 
     return sessionmaker(bind=engine)
 
