@@ -346,7 +346,14 @@ class DataSet(object):
         df=pd.concat(dfs,axis=0)
         return df
 
-            
+    def contemporaneous_load(self, sensor_names: list[str],characteristic=False,filelist=None) -> pd.DataFrame:
+        """Calculate contemporaneous load for given sensors"""
+        if filelist is None:
+            filelist=self.filelist
+
+        sensors=SensorList([self.sensorlist.get_sensor(name) for name in sensor_names])
+        df=sensors._contemporaneous_load(filelist=filelist,characteristic=characteristic)
+        return df
 
     def plot_stats(self,y:list,x:dict=None,color:dict=None,fig=None,engine="plotly",filelist=None):
         """Plot statistics for a given sensor"""
