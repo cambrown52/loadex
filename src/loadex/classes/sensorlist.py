@@ -101,7 +101,7 @@ class Sensor(object):
         return custom_stat_data
 
     
-    def _extreme_load(self,filelist:"filelist.FileList",characteristic=False)->pd.DataFrame:
+    def _extreme_load(self,filelist:"filelist.FileList",characteristic=False,absmax=True)->pd.DataFrame:
         """Return a DataFrame with extreme loads for each group"""
         
         df_file=filelist.to_dataframe().loc[:,["dlc","group","averaging_method","partial_safety_factor"]]
@@ -111,30 +111,70 @@ class Sensor(object):
         df=pd.concat([df_file,self.data],axis=1)
         df["absmax"]=df[["min","max"]].abs().max(axis=1)
 
-        mean_of_max=df[["dlc","group","partial_safety_factor","max","averaging_method"]].groupby(["dlc","group"]).apply(
-            lambda x: designloadcases.DesignLoadCase.apply_averaging(x["max"] * x["partial_safety_factor"], x["averaging_method"])
-            ).reset_index().rename(columns={0:"value"})
+        mean_of_max = (
+            df[["dlc", "group", "partial_safety_factor", "max", "averaging_method"]]
+            .groupby(["dlc", "group"])
+            .apply(
+                lambda x: pd.Series(
+                    {
+                        "partial_safety_factor": x["partial_safety_factor"].iloc[0],
+                        "value": designloadcases.DesignLoadCase.apply_averaging(
+                            x["max"] * x["partial_safety_factor"], x["averaging_method"]
+                        ),
+                    }
+                )
+            )
+            .reset_index()
+        )
         mean_of_max=mean_of_max.loc[mean_of_max.loc[:,"value"].idxmax(),:]
         mean_of_max["extreme"]="mean_of_max"
 
-        mean_of_min=df[["dlc","group","partial_safety_factor","min","averaging_method"]].groupby(["dlc","group"]).apply(
-            lambda x: designloadcases.DesignLoadCase.apply_averaging(x["min"] * x["partial_safety_factor"], x["averaging_method"])
-            ).reset_index().rename(columns={0:"value"})
-        mean_of_min=mean_of_min.loc[mean_of_min.loc[:,"value"].idxmin(),:]
+        mean_of_min = (
+            df[["dlc", "group", "partial_safety_factor", "min", "averaging_method"]]
+            .groupby(["dlc", "group"])
+            .apply(
+                lambda x: pd.Series(
+                    {
+                        "partial_safety_factor": x["partial_safety_factor"].iloc[0],
+                        "value": designloadcases.DesignLoadCase.apply_averaging(
+                            x["min"] * x["partial_safety_factor"], x["averaging_method"]
+                        ),
+                    }
+                )
+            )
+            .reset_index()
+        )
+        mean_of_min = mean_of_min.loc[mean_of_min.loc[:, "value"].idxmin(), :]
         mean_of_min["extreme"]="mean_of_min"
 
-        mean_of_absmax=df[["dlc","group","partial_safety_factor","absmax","averaging_method"]].groupby(["dlc","group"]).apply(
-            lambda x: designloadcases.DesignLoadCase.apply_averaging(x["absmax"] * x["partial_safety_factor"], x["averaging_method"])
-            ).reset_index().rename(columns={0:"value"})
-        mean_of_absmax=mean_of_absmax.loc[mean_of_absmax.loc[:,"value"].idxmax(),:]
-        mean_of_absmax["extreme"]="mean_of_absmax"
+        if not absmax:
+            extremes=pd.DataFrame([mean_of_max,mean_of_min]).reset_index(drop=True)
 
-        extremes=pd.DataFrame([mean_of_max,mean_of_min,mean_of_absmax]).reset_index(drop=True)
+        else: #add absmax is requested
+            mean_of_absmax = (
+                df[["dlc", "group", "partial_safety_factor", "absmax", "averaging_method"]]
+                .groupby(["dlc", "group"])
+                .apply(
+                    lambda x: pd.Series(
+                        {
+                            "partial_safety_factor": x["partial_safety_factor"].iloc[0],
+                            "value": designloadcases.DesignLoadCase.apply_averaging(
+                                x["absmax"] * x["partial_safety_factor"], x["averaging_method"]
+                            ),
+                        }
+                    )
+                )
+                .reset_index()
+            )
+            mean_of_absmax = mean_of_absmax.loc[mean_of_absmax.loc[:, "value"].idxmax(), :]
+            mean_of_absmax["extreme"]="mean_of_absmax"
+
+            extremes=pd.DataFrame([mean_of_max,mean_of_min,mean_of_absmax]).reset_index(drop=True)
         
         extremes["sensor"] = self.name
         
         # set index and reorder columns
-        extremes= extremes.set_index("sensor")[["extreme","dlc","group","value"]]
+        extremes= extremes.set_index("sensor")[["extreme","dlc","group","partial_safety_factor","value"]]
         
         return extremes
 
@@ -422,9 +462,53 @@ class SensorList(list):
     
     def contemporaneous_load(self,filelist:"filelist.FileList", characteristic=False) -> pd.DataFrame:
         """Calculate contemporaneous load for the SensorList"""
-        raise NotImplementedError("Contemporaneous load calculation is not implemented yet.")
-        for sensor in self:
-            df_extreme = sensor._extreme_load(filelist=filelist,characteristic=characteristic)
+        
+        cntmp_sets=[]
+        for primary_sensor in self:
+            extremes=primary_sensor._extreme_load(filelist=filelist,characteristic=True,absmax=False)
+            for _, ex in extremes.iterrows():
+                #contemporaneous
+                contemporaneous_group=[]
+                for file in filelist.get_files(group=ex["group"]):
+                
+                    x=primary_sensor.get_timeseries(file)
+                    if ex["extreme"]=="mean_of_max":
+                        index=x.idxmax()
+                    if ex["extreme"]=="mean_of_min":
+                        index=x.idxmin()
+                
+                    values={}
+                    for sensor in self:
+                        y=sensor.get_timeseries(file)
+                        values[sensor.name]=y.loc[index]
+
+                    contemporaneous_group.append({
+                        "filepath":file.filepath,
+                        "primary_sensor":primary_sensor.name,
+                        "group":ex["group"],
+                        "psf":file.dlc.partial_safety_factor,
+                        "extreme":ex["extreme"],
+                        "characteristic_extreme_value":ex["value"],
+                        "timestamp":file.get_time()[index],
+                        "characteristic_primary_value":x.loc[index],
+                        **values
+                    })
+
+                contemporaneous_group_df=pd.DataFrame(contemporaneous_group)
+
+                closest_seed=abs(contemporaneous_group_df["characteristic_primary_value"]-ex["value"]).idxmin()
+                contemporaneous_set=contemporaneous_group_df.iloc[closest_seed,:].copy()
+                contemporaneous_set["scaling"]=ex["value"]/contemporaneous_set["characteristic_primary_value"]
+                contemporaneous_set[self.names]=contemporaneous_set[self.names]*contemporaneous_set["scaling"]
+                if not characteristic:
+                    contemporaneous_set[self.names]=contemporaneous_set[self.names]*contemporaneous_set["psf"]
+                
+                cntmp_sets.append(contemporaneous_set)
+
+        cntmp_sets=pd.DataFrame(cntmp_sets)
+        cntmp_sets.drop(columns=["characteristic_primary_value","characteristic_extreme_value"], inplace=True)
+        return cntmp_sets
+
 
 
     def __repr__(self):
