@@ -141,7 +141,7 @@ class DataSet(object):
         sensorlist = [Sensor(name,metadata=self.filelist[fileindex].get_sensor_metadata(name)) for name in self.filelist[fileindex].sensor_names]
         self.sensorlist= SensorList(sensorlist)
 
-    def generate_statistics(self,filelistindex=None,parallel:bool=False,processes:int=8):
+    def generate_statistics(self,filelist:"FileList"=None,parallel:bool=False,processes:int=8):
         """Generate statistics for each sensor across all files"""
         if not self.filelist:
             raise ValueError("Filelist is empty. Please find files first.")
@@ -150,8 +150,8 @@ class DataSet(object):
         
         failed=[]
         
-        if filelistindex is not None:
-            files_to_process=[self.filelist[index] for index in filelistindex]
+        if filelist is not None:
+            files_to_process=filelist
         else:
             files_to_process=self.filelist
 
@@ -191,6 +191,58 @@ class DataSet(object):
         for sensor in self.sensorlist:
             sensor_data=pd.DataFrame(cached_data[sensor.name].values.tolist(),index=cached_data.index)
             sensor._insert_generated_statistics(sensor_data)
+            
+        if failed:
+            print("failed to load:")
+            for f in failed:
+                print(f)
+
+    def generate_markov(self,sensorlist:"SensorList",filelist:"FileList"=None,parallel:bool=False,processes:int=8,write_to_file:bool=True):
+        """Generate statistics for each sensor across all files"""
+    
+        
+        failed=[]
+        
+        if filelist is not None:
+            files_to_process=filelist
+        else:
+            files_to_process=self.filelist
+
+        cached_data=[]
+        if parallel==False:
+            for file in files_to_process:
+            
+                success, markov = file.generate_markov(sensorlist,write_to_file=write_to_file)
+                if not success:
+                    failed.append(file.filepath)
+                    continue
+                else:
+                    cached_data.append(markov)
+        else:
+            with multiprocessing.Pool(processes=processes) as pool:
+                results = []
+                for file in files_to_process:
+                    print(f"adding file to queue: {file.filepath}")
+                    file.clear_connections()
+                    result = pool.apply_async(file.generate_markov, args=(sensorlist,write_to_file))
+                    results.append((str(file.filepath), result))
+                
+                for filepath, result in results:
+                    success, markov = result.get()
+                    if not success:
+                        print(f"failed to load file: {filepath}")
+                        failed.append(filepath)
+                        continue
+                    else:
+                        print(f"finished loading file: {filepath}")
+                        cached_data.append(markov)
+
+        # Now populate sensor data from cached_data
+        df=pd.merge(cached_data, ignore_index=True)
+        df=df.set_index("filepath")
+        
+        for sensor in self.sensorlist:
+            sensor._insert_generated_markov(df.loc[df["sensor"]==sensor.name,:].drop(columns=["sensor"]))
             
         if failed:
             print("failed to load:")

@@ -15,6 +15,7 @@ class Sensor(object):
             self.statistics = statistics.standard_statistics.copy()
         
         self.data=pd.DataFrame()
+        self.markovcycles=pd.DataFrame()
         self.metadata = metadata
 
 
@@ -38,6 +39,41 @@ class Sensor(object):
 
         # append cache
         self.data = pd.concat([self.data, new_data], axis=0)
+
+    def _insert_generated_markov(self,new_data:pd.DataFrame):
+        """Insert  markov data into the markovcycles DataFrame"""
+        if new_data.empty:
+            return
+        
+        new_data.index.name = 'filename'
+    
+        # remove overlapping entries
+        if not self.markovcycles.empty:
+            overlap = self.markovcycles.index.intersection(new_data.index)
+            if len(overlap):
+                self.markovcycles = self.markovcycles.drop(overlap)
+
+        # append cache
+        self.markovcycles = pd.concat([self.markovcycles, new_data], axis=0)
+
+    def markov_matrix(self,filelist,range_bins=50,mean_bins=50):
+        """Calculate Markov transition matrix for the sensor"""
+        
+        cycles=self.markovcycles[filelist.to_index()]
+        cycles=cycles.join(filelist.get_hours())
+
+        # create bins
+        cycles["range_bin"]=pd.cut(cycles["range"], bins=range_bins)
+        cycles["mean_bin"]=pd.cut(cycles["mean"], bins=mean_bins)
+
+        # calculate simulation weighting
+        cycles["scaling"]=cycles["hours"]*3600/cycles["simulation_duration"]
+        cycles["scaled_count"]=cycles["count"]*cycles["scaling"]
+
+        # sum binned number of scaled cycles
+        markov_matrix=cycles.groupby(["range_bin","mean_bin"])["scaled_count"].sum()
+
+        return markov_matrix
 
     def add_rainflow_statistics(self, m: list[float] = [3,4,5]):
         """Add rainflow statistics to the sensor"""

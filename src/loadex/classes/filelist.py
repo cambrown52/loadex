@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Dict
 import json
 
+import rainflow
+
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
@@ -77,6 +79,32 @@ class File(object):
             print(f"Error generating statistics for file {self.filepath}: {e}")
             return False, {}
         return True, file_stats
+    
+    def generate_markov(self,sensorlist:"SensorList",write_to_file:bool=True)->tuple[bool,pd.DataFrame]:
+        """Calculate Markov matrices for the file for each sensor and store them in a dictionary"""
+        try:
+            print(f"loading file: {self.filepath}")
+            dfs=[]
+            t=self.get_time()
+            duration=max(t)-min(t)
+            for sensor in sensorlist:
+                x=sensor.get_timeseries(self)
+
+                df_i=pd.DataFrame([cycle[0:3] for cycle in rainflow.extract_cycles(x)],columns=["range", "mean", "count"])
+                df_i["filepath"]=str(self.filepath)
+                df_i["sensor"]=sensor.name
+                df_i["simulation_duration"]=duration
+
+                dfs.append(df_i)
+            
+            markov=pd.concat(dfs, ignore_index=True)
+            if write_to_file:
+                markov.to_parquet(self.filepath.with_suffix('.markov.parquet'), index=False)
+                
+        except Exception as e:
+            print(f"Error generating Markov matrix for file {self.filepath}: {e}")
+            return False, None
+        return True, markov
 
 
     def plot_timeseries(self,sensor:str|Sensor, axis=None,scale:float=None,offset: float = None,time_offset:float = None,label=None,engine:str="matplotlib",row:int=None,col:int=None,line_color:str=None,showlegend:bool|None=None,legendgroup:str|None=None,xaxis_id:str|None=None,yaxis_id:str|None=None):
@@ -170,7 +198,7 @@ class FileList(list):
                 return file
         raise ValueError(f"File '{name}' not found in filelist.")
 
-    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None, in_list: list[str] = None,metadata:dict=None )->"FileList":
+    def get_files(self,pattern: str=None,dlc: "DesignLoadCase"=None,group:str=None, in_list: list[str] = None,metadata:dict=None )->"FileList":
         """Return a list of files by pattern"""
         file=self
         if pattern:
@@ -188,6 +216,11 @@ class FileList(list):
             file=[f for f in file if f.dlc in dlc]
             if len(file)==0:
                 raise ValueError(f"No files found matching DLC '{dlc.name}'.")
+        
+        if group:
+            file=[f for f in file if f.group == group]
+            if len(file)==0:
+                raise ValueError(f"No files found matching group '{group}'.")
         
         if in_list:
             file=[f for f in file if str(f.filepath) in in_list]
