@@ -238,11 +238,50 @@ class DataSet(object):
                         cached_data.append(markov)
 
         # Now populate sensor data from cached_data
-        df=pd.merge(cached_data, ignore_index=True)
+        df=pd.concat(cached_data, ignore_index=True)
         df=df.set_index("filepath")
         
-        for sensor in self.sensorlist:
-            sensor._insert_generated_markov(df.loc[df["sensor"]==sensor.name,:].drop(columns=["sensor"]))
+        markovgroupedbysensor=df.groupby("sensor")
+        for sensor in sensorlist:
+            print(f"Inserting Markov data for sensor: {sensor.name}")
+            sensor._insert_generated_markov(markovgroupedbysensor.get_group(sensor.name).drop(columns=["sensor"]))
+            
+        if failed:
+            print("failed to load:")
+            for f in failed:
+                print(f)
+    
+    def load_markov(self,sensorlist:"SensorList",filelist:"FileList"=None):
+        """load previously generated markov matrices for each sensor across all files"""
+        
+        failed=[]
+        
+        if filelist is not None:
+            files_to_process=filelist
+        else:
+            files_to_process=self.filelist
+
+        cached_data=[]
+    
+        for file in files_to_process:
+            markov_file=file.filepath.with_suffix(".markov.parquet")
+            if not markov_file.exists():
+                print(f"Markov file not found at {markov_file}. Skipping.")
+                failed.append(file.filepath)
+                continue
+
+            print(f"Loading {markov_file}")
+            markov = pd.read_parquet(markov_file)
+            cached_data.append(markov)
+
+        # Now populate sensor data from cached_data
+        df=pd.concat(cached_data, ignore_index=True)
+        df=df.set_index("filepath")
+        
+        markovgroupedbysensor=df.groupby("sensor")
+        for sensor in sensorlist:
+            print(f"Inserting Markov data for sensor: {sensor.name}")
+            sensor._insert_generated_markov(markovgroupedbysensor.get_group(sensor.name).drop(columns=["sensor"]))
             
         if failed:
             print("failed to load:")
