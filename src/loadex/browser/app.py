@@ -68,8 +68,9 @@ app.layout = dbc.Container([
     ),
     
     # Store for the dataset (will store serialized data)
-    dcc.Store(id='session-id-store', storage_type='session'),
-    dcc.Store(id='dataset-metadata', storage_type='session'),
+    # Using 'local' storage to share session-id and metadata across browser tabs
+    dcc.Store(id='session-id-store', storage_type='local'),
+    dcc.Store(id='dataset-metadata', storage_type='local'),
     dcc.Store(id='dataset-metadata-open-request'),
 
     dbc.Offcanvas(
@@ -152,4 +153,4 @@ def toggle_dataset_metadata_offcanvas(open_request, button_clicks, is_open):
     return is_open
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8050,dev_tools_hot_reload=True)
+    app.run(debug=True, port=8060,dev_tools_hot_reload=True)
