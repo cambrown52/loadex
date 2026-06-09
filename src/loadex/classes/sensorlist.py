@@ -273,7 +273,10 @@ class SensorList(list):
                 raise ValueError(f"Input '{input_name}' for virtual sensor '{name}' must be a Sensor object or sensor name, got {type(input_sensor)}")
             if input_sensor not in self:
                 raise ValueError(f"Input sensor '{input_sensor.name}' for virtual sensor '{name}' not found in sensor list.")
-            
+        
+        if name in self.names:
+            raise ValueError(f"Sensor with name '{name}' already exists in sensor list.")
+
         self.append(VirtualSensor(name, inputs, function, metadata))
 
     def to_dict(self):
