@@ -58,9 +58,15 @@ class Sensor(object):
 
     def markov_matrix(self,filelist,range_bins=50,mean_bins=50):
         """Calculate Markov transition matrix for the sensor"""
-        
-        cycles=self.markovcycles[filelist.to_index()]
-        cycles=cycles.join(filelist.get_hours())
+        fileindex=filelist.to_index()
+        matches = self.markovcycles.index.intersection(fileindex)
+        missing=  fileindex.difference(self.markovcycles.index)
+    
+        if missing.any():
+            print(f"Warning: Markov data for sensor '{self.name}' is missing for {len(missing)} out of {len(fileindex)} files. Markov matrix will be calculated using available data, but results may be inaccurate.")
+
+        cycles=self.markovcycles.loc[matches,:]
+        cycles=cycles.join(filelist.get_hours()[matches])
 
         # create bins
         cycles["range_bin"]=pd.cut(cycles["range"], bins=range_bins)
